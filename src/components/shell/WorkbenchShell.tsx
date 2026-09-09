@@ -248,8 +248,17 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
       case 'constellation':
         return (
           <ConstellationWorkspace
+            mission={mission}
             selection={selection}
             onSelectRecord={selectCorpusRecord}
+            onSelectGraphNode={(node) => {
+              setSelection({
+                graphNodeId: node.id,
+                entityName: node.label,
+                entityType: node.kind,
+                canonicalRef: node.knowledgeKey || node.canonicalRef,
+              });
+            }}
             onOpenGraph={() => openWorkspace('graph')}
           />
         );
