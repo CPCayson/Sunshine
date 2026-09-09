@@ -56,6 +56,168 @@
   backdrop-filter: none !important;
 }
 
+/* Knowledge graph: canvas first. Keep rotations and tools, remove the dashboard feeling. */
+#mission-graph-workspace > div:first-child {
+  background: #050a12 !important;
+  border-color: #111827 !important;
+  padding: 8px 16px !important;
+  gap: 6px !important;
+}
+
+/* The workbench header already names the surface, so remove the duplicate graph title block. */
+#mission-graph-workspace > div:first-child > div:first-child > div:first-child {
+  display: none !important;
+}
+
+#mission-graph-workspace > div:first-child > div:first-child {
+  justify-content: flex-end !important;
+  min-height: 28px;
+}
+
+#mission-graph-workspace > div:first-child > div:first-child button {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: #94a3b8 !important;
+  padding: 5px 8px !important;
+  font-weight: 500 !important;
+}
+
+#mission-graph-workspace > div:first-child > div:first-child button:hover {
+  background: #0b1220 !important;
+  color: #cbd5e1 !important;
+}
+
+/* Rotations become a quiet text rail instead of nine competing pills. */
+#mission-graph-workspace > div:first-child > div:nth-child(2) {
+  gap: 2px !important;
+  padding-bottom: 0 !important;
+}
+
+#mission-graph-workspace > div:first-child > div:nth-child(2) button {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 6px 10px !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+#mission-graph-workspace > div:first-child > div:nth-child(2) button > span:first-child {
+  display: none !important;
+}
+
+#mission-graph-workspace > div:first-child > div:nth-child(2) button[class*="from-cyan-600"] {
+  color: #a5f3fc !important;
+  border-bottom-color: #67e8f9 !important;
+}
+
+/* Search / filter / focus remain available but read as one low-priority utility row. */
+#mission-graph-workspace > div:first-child > div:nth-child(3) {
+  border-top: 0 !important;
+  padding-top: 2px !important;
+  opacity: 0.72;
+}
+
+#mission-graph-workspace > div:first-child > div:nth-child(3):focus-within,
+#mission-graph-workspace > div:first-child > div:nth-child(3):hover {
+  opacity: 1;
+}
+
+#mission-graph-workspace > div:first-child > div:nth-child(3) [class*="bg-[#050914]"] {
+  background: transparent !important;
+  border-color: #1e293b !important;
+}
+
+#mission-graph-workspace svg [filter] {
+  filter: none !important;
+}
+
+/* Lifecycle: current state and readiness first; playback chrome becomes secondary. */
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 {
+  background: #050a12 !important;
+}
+
+/* Hide duplicated title + playback toolbar. Playback remains available in the Timeline view. */
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:first-child > div:first-child {
+  display: none !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:first-child {
+  background: #050a12 !important;
+  border-color: #111827 !important;
+  padding: 7px 14px !important;
+}
+
+/* Eleven stages remain visible, but as a light timeline rather than eleven cards. */
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:first-child > div:last-child button {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 5px 6px !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:first-child > div:last-child button [class*="bg-purple"] {
+  display: none !important;
+}
+
+/* Replace long sub-view labels with five calm navigation words without removing functionality. */
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) {
+  background: #050a12 !important;
+  border-color: #111827 !important;
+  padding: 0 16px !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) > div:first-child {
+  gap: 14px !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) button {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 10px 1px !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) button svg,
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) button span {
+  display: none !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) button:nth-child(1)::after { content: "Timeline"; }
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) button:nth-child(2)::after { content: "Readiness"; }
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) button:nth-child(3)::after { content: "OISS"; }
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) button:nth-child(4)::after { content: "Architecture"; }
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) button:nth-child(5)::after { content: "Ledger"; }
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) button[class*="text-cyan-300"] {
+  color: #a5f3fc !important;
+  border-bottom-color: #67e8f9 !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(2) > div:last-child {
+  display: none !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 > div:nth-child(3) {
+  padding: 20px 24px !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 .animate-in,
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 .animate-pulse {
+  animation: none !important;
+}
+
+div.h-full.w-full.flex.flex-col.bg-\[\#040813\].text-slate-200 [class*="bg-gradient"] {
+  background: #07101b !important;
+}
+
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
