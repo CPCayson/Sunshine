@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   CircleDashed,
   Anchor,
+  Network,
 } from 'lucide-react';
 import {
   VERIFIED_NOAA_UXS_CORPUS,
@@ -16,6 +17,8 @@ import {
   buildKnowledgeKeyCandidate,
 } from '../data/verifiedNoaaCorpus';
 import {
+  corpusGraphNodeIdForRecord,
+  corpusObservationNodeIdForRecord,
   getSourceBackedRelationshipAssessment,
   runVerifiedCorpusInvariantAudit,
 } from '../services/verifiedCorpusAdapter';
@@ -43,6 +46,23 @@ const relationshipStateClass = (state: string) => {
   if (state === 'SUPPORTED_BY_SOURCE_ROW') return 'border-emerald-700/40 bg-emerald-950/20 text-emerald-300';
   if (state === 'SOURCE_MENTION_ONLY') return 'border-amber-700/40 bg-amber-950/20 text-amber-300';
   return 'border-slate-700 bg-slate-900/30 text-slate-400';
+};
+
+const publishCorpusSelection = (record: VerifiedUxSAssetRecord, openGraph = false) => {
+  window.dispatchEvent(
+    new CustomEvent('manta:corpus-selection', {
+      detail: {
+        openGraph,
+        selection: {
+          canonicalRef: buildKnowledgeKeyCandidate(record),
+          graphNodeId: corpusGraphNodeIdForRecord(record),
+          sourceObservationId: corpusObservationNodeIdForRecord(record),
+          entityName: `${record.manufacturer} ${record.model}${record.serialOrIdentifier ? ` #${record.serialOrIdentifier}` : ''}`,
+          entityType: 'PHYSICAL_ASSET_CANDIDATE',
+        },
+      },
+    })
+  );
 };
 
 export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => {
@@ -76,6 +96,17 @@ export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => 
   const relationshipAssessment = selected ? getSourceBackedRelationshipAssessment(selected) : [];
   const corpusAudit = useMemo(() => runVerifiedCorpusInvariantAudit(), []);
 
+  const selectRecord = (record: VerifiedUxSAssetRecord) => {
+    setSelectedId(record.id);
+    publishCorpusSelection(record, false);
+  };
+
+  const openSelectedInGraph = () => {
+    if (!selected) return;
+    publishCorpusSelection(selected, true);
+    onClose?.();
+  };
+
   return (
     <div className="fixed inset-0 z-[90] bg-[#02050b]/95 backdrop-blur-xl text-slate-100 flex flex-col">
       <header className="h-14 shrink-0 border-b border-cyan-500/20 px-5 flex items-center justify-between bg-[#050b16]">
@@ -89,6 +120,16 @@ export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => 
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {selected && (
+            <button
+              onClick={openSelectedInGraph}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-cyan-500/40 bg-cyan-950/40 text-cyan-200 text-[10px] font-mono hover:bg-cyan-900/40"
+              title="Send this source-backed asset selection to the shared workbench and focus the Knowledge Graph"
+            >
+              <Network className="w-3.5 h-3.5" />
+              OPEN IN GRAPH
+            </button>
+          )}
           <span className={`px-2 py-1 rounded border text-[10px] font-mono ${corpusAudit.passed ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-300' : 'border-rose-500/30 bg-rose-950/30 text-rose-300'}`}>
             CORPUS TRUTH AUDIT {corpusAudit.passed ? 'PASS' : 'REVIEW'}
           </span>
@@ -145,7 +186,7 @@ export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => 
             {filtered.map((record) => (
               <button
                 key={record.id}
-                onClick={() => setSelectedId(record.id)}
+                onClick={() => selectRecord(record)}
                 className={`w-full text-left p-3 rounded-lg border transition-colors ${selected?.id === record.id ? 'border-cyan-600/50 bg-cyan-950/25' : 'border-slate-800/80 bg-[#07101c] hover:border-slate-700'}`}
               >
                 <div className="flex items-start justify-between gap-2">
