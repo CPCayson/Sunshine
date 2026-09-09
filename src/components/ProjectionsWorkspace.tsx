@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle2, Copy, Download, Layers } from 'lucide-react';
 import { UxSMission } from '../types';
 import {
@@ -6,16 +6,31 @@ import {
   generateResolvedIsoXml,
 } from '../services/docucompService';
 
+export type ProjectionFormat = 'ISO' | 'STAC' | 'DCAT' | 'OISS';
+
 interface ProjectionsWorkspaceProps {
   mission: UxSMission;
+  requestedFormat?: ProjectionFormat;
+  onFormatChange?: (format: ProjectionFormat) => void;
 }
 
-type ProjectionFormat = 'ISO' | 'STAC' | 'DCAT' | 'OISS';
-
-export const ProjectionsWorkspace: React.FC<ProjectionsWorkspaceProps> = ({ mission }) => {
-  const [activeFormat, setActiveFormat] = useState<ProjectionFormat>('ISO');
+export const ProjectionsWorkspace: React.FC<ProjectionsWorkspaceProps> = ({
+  mission,
+  requestedFormat,
+  onFormatChange,
+}) => {
+  const [activeFormat, setActiveFormat] = useState<ProjectionFormat>(requestedFormat || 'ISO');
   const [useResolvedXlinks, setUseResolvedXlinks] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (requestedFormat) setActiveFormat(requestedFormat);
+  }, [requestedFormat]);
+
+  const selectFormat = (format: ProjectionFormat) => {
+    setActiveFormat(format);
+    onFormatChange?.(format);
+  };
 
   const displayedIsoXml = useResolvedXlinks
     ? generateResolvedIsoXml(mission)
@@ -191,7 +206,7 @@ export const ProjectionsWorkspace: React.FC<ProjectionsWorkspaceProps> = ({ miss
 
         <select
           value={activeFormat}
-          onChange={(e) => setActiveFormat(e.target.value as ProjectionFormat)}
+          onChange={(e) => selectFormat(e.target.value as ProjectionFormat)}
           className="bg-[#09111d] border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-800"
           aria-label="Projection format"
         >
