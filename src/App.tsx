@@ -20,19 +20,19 @@ export default function App() {
   const [isCorpusOpen, setIsCorpusOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
-  // Initial welcome message from MANTA Lens AI
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome-1',
       sender: 'assistant',
-      text: `👋 Welcome to **MANTA Lens Spatial Workbench** — high-density operational workbench for **NOAA NCEI Uncrewed Systems (UxS)** metadata.
+      text: `Welcome to **MANTA Constellation** — a visual companion for exploring UxS evidence, mission meaning, projections, and scoped assurance.
 
-**Spatial Workbench Capabilities**:
-- **Discover / Understand / Deliver**: Switch active workspace groups directly via the top interactive breadcrumb bar.
-- **Top / Bottom Dual Panes**: Work in tandem with Knowledge Graph & Oceanographic Map, or Charlie Intake & Accepted Mission.
-- **Draggable Focus Seam**: Drag to resize (or double click for 55/45 balanced view, hover for 1-click swap).
-- **MANTAScript Canvas (⌘K)**: Full-surface execution canvas for fast searches, cleaning, and surface pairing commands.
-- **Contextual Lens**: Slide over on demand without persistent dashboard clutter.`,
+**Operating boundary**
+- Sunshine is a **local visual prototype**, not the canonical Zen store.
+- Search results and AI suggestions are **evidence/candidates**, not accepted truth.
+- CoMET remains an external NOAA metadata authority surface.
+- OISS acceptance is **NOT TESTED** unless a real scoped receipt says otherwise.
+
+Use the workspace to inspect what is known, why it is believed, where it projects, and what has actually been checked.`,
       timestamp: 'Just now',
       modelUsed: 'gemini-3.5-flash',
       groundingSources: [
@@ -49,11 +49,10 @@ export default function App() {
   ]);
   const [isChatLoading, setIsChatLoading] = useState(false);
 
-  // Derive live XML and validation issues from canonical mission state
+  // Local prototype projection and rule readout. This is not an external authority receipt.
   const liveXml = useMemo(() => generateIso19115Xml(mission), [mission]);
   const { score } = useMemo(() => validateUxSMission(mission), [mission]);
 
-  // Keep mission conformance score in sync with calculated score
   React.useEffect(() => {
     if (mission.conformanceScore !== score) {
       setMission((prev) => ({ ...prev, conformanceScore: score }));
@@ -65,7 +64,6 @@ export default function App() {
     setTimeout(() => setToast(null), 4500);
   };
 
-  // Send message to Gemini Chatbot with Search Grounding
   const handleSendMessage = async (text: string, modelChoice: string) => {
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -116,7 +114,7 @@ export default function App() {
     }
   };
 
-  // Pull search result as evidence into the claims workspace
+  // Pull search result as observed evidence. This does not silently accept it as Zen truth.
   const handlePullAsEvidence = (result: FederatedSearchResult) => {
     const newSource = {
       id: `source-obs-${Date.now()}`,
@@ -146,10 +144,10 @@ export default function App() {
       claims: [...(prev.claims || []), newClaim],
     }));
 
-    showToast(`Pulled evidence from ${result.authority} into Claims queue.`);
+    showToast(`Pulled evidence from ${result.authority}. Canonical meaning unchanged.`);
   };
 
-  // Human decision on candidate claim
+  // Human decision is the explicit gate for candidate acceptance inside this prototype mission state.
   const handleAcceptClaim = (claimId: string, acceptedValue?: any) => {
     setMission((prev) => {
       const updatedClaims = (prev.claims || []).map((c) => {
@@ -177,7 +175,7 @@ export default function App() {
       };
     });
 
-    showToast(`Claim accepted by Human Steward into Canonical Mission.`);
+    showToast(`Human decision recorded in local prototype state.`);
   };
 
   const handleRejectClaim = (claimId: string) => {
@@ -190,7 +188,6 @@ export default function App() {
     showToast(`Candidate claim rejected.`);
   };
 
-  // Signal remediation application
   const handleApplySignalRemediation = (finding: SignalFinding) => {
     if (!finding.remediationAction) return;
 
@@ -206,7 +203,7 @@ export default function App() {
           placeName: 'Hawaiian Ridge & Kaiwi Channel',
         },
       }));
-      showToast('Calibrated geographic bounding box coordinates.');
+      showToast('Applied local prototype remediation to geographic extent.');
     } else if (finding.canonicalField === 'platform.modelId') {
       setMission((prev) => ({
         ...prev,
@@ -216,45 +213,37 @@ export default function App() {
           modelId: 'REMUS-620',
         },
       }));
-      showToast('Aligned platform identity with UxS Marine Core Profile.');
+      showToast('Applied local prototype platform normalization.');
     } else if (
       finding.canonicalField === 'docucompReferences' ||
       finding.id?.includes('SIG-SEMANTIC-PLACEMENT') ||
       finding.canonicalField === 'docucompSlot'
     ) {
-      showToast('Remediated DocuComp semantic placement: Relocated component to canonical gmd:contact slot.');
+      showToast('DocuComp placement suggestion recorded locally; no external write performed.');
     }
   };
 
-  // Apply suggestions received from chatbot
+  // AI suggestions are staged separately from mission truth. They never auto-mutate mission, Zen, CoMET, or OISS state.
   const handleApplySuggestedUpdates = (updates: any) => {
     if (!updates) return;
-    setMission((prev) => {
-      const copy = { ...prev };
-      if (updates.title) copy.title = updates.title;
-      if (updates.abstract) copy.abstract = updates.abstract;
-      if (updates.keywords && Array.isArray(updates.keywords)) {
-        copy.keywords = {
-          ...copy.keywords,
-          gcmdScience: Array.from(new Set([...copy.keywords.gcmdScience, ...updates.keywords])),
-        };
-      }
-      if (updates.bbox) {
-        copy.spatialExtent = {
-          ...copy.spatialExtent,
-          west: updates.bbox.west ?? copy.spatialExtent.west,
-          south: updates.bbox.south ?? copy.spatialExtent.south,
-          east: updates.bbox.east ?? copy.spatialExtent.east,
-          north: updates.bbox.north ?? copy.spatialExtent.north,
-          placeName: updates.bbox.placeName || copy.spatialExtent.placeName,
-        };
-      }
-      if (updates.instruments && Array.isArray(updates.instruments)) {
-        copy.instruments = Array.from(new Set([...copy.instruments, ...updates.instruments]));
-      }
-      return copy;
-    });
-    showToast('Applied AI suggested updates to canonical mission model!');
+    try {
+      const key = 'manta:staged-ai-suggestions';
+      const existing = JSON.parse(sessionStorage.getItem(key) || '[]');
+      const staged = [
+        ...existing,
+        {
+          id: `ai-suggestion-${Date.now()}`,
+          stagedAt: new Date().toISOString(),
+          missionId: mission.id,
+          state: 'CANDIDATE_FOR_REVIEW',
+          updates,
+        },
+      ];
+      sessionStorage.setItem(key, JSON.stringify(staged));
+      showToast('AI suggestion staged for human review. Mission truth unchanged.', 'info');
+    } catch {
+      showToast('AI suggestion reviewed locally; mission truth unchanged.', 'info');
+    }
   };
 
   return (
@@ -287,13 +276,12 @@ export default function App() {
 
       {isCorpusOpen && <CorpusWorkspace onClose={() => setIsCorpusOpen(false)} />}
 
-      {/* Template Selector Modal */}
       <TemplateSelectorModal
         isOpen={isTemplatesOpen}
         onClose={() => setIsTemplatesOpen(false)}
         onSelectMission={(selected) => {
           setMission(selected);
-          showToast(`Loaded mission record: ${selected.id}`);
+          showToast(`Loaded local prototype mission snapshot: ${selected.id}`);
         }}
         currentMissionId={mission.id}
       />
