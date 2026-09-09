@@ -58,7 +58,10 @@ const summary = byId.get('summary-only');
 assert(literal, 'Literal REMUS result missing from ranking.');
 assert(generic, 'Generic AUV result missing from ranking.');
 assert(summary, 'Summary-only result missing from ranking.');
-assert(literal!.matchTier === 'EXACT_PLATFORM' || literal!.matchTier === 'EXACT_TITLE', 'Literal REMUS must receive an exact-match tier.');
+assert(
+  ['EXACT_ID', 'EXACT_PLATFORM', 'EXACT_TITLE'].includes(literal!.matchTier),
+  'Literal REMUS must receive a strong literal-evidence tier.'
+);
 assert(literal!.rankInSource < generic!.rankInSource, 'Literal REMUS must outrank generic AUV semantic relevance.');
 assert(literal!.rankInSource < summary!.rankInSource, 'Literal REMUS must outrank summary-only mentions.');
 assert(generic!.rankReasons.some((reason) => reason.authority === 'LOCAL'), 'Generic AUV recall should be explainable as LOCAL semantic evidence.');
@@ -84,6 +87,7 @@ const titleOnlyDraft = buildDiscoveryIntakeDraft(titleOnly);
 assert(!titleOnlyDraft.candidate.platform, 'A title mention alone must not be promoted into platform truth during intake.');
 
 console.log(`REMUS_LITERAL_RANK=${literal!.rankInSource}`);
+console.log(`REMUS_LITERAL_TIER=${literal!.matchTier}`);
 console.log(`GENERIC_AUV_RANK=${generic!.rankInSource}`);
 console.log(`SUMMARY_ONLY_RANK=${summary!.rankInSource}`);
 console.log(`LOCAL_CROSSWALK_LABELS=${queryCrosswalk.length}`);
