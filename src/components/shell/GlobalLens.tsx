@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   ChevronRight,
   ShieldCheck,
-  Building
+  Building,
+  Compass
 } from 'lucide-react';
 import {
   ActiveWorkspaceTab,
@@ -26,6 +27,7 @@ import { LiveXmlPreview } from '../LiveXmlPreview';
 import { CometOperationMode } from '../../services/cometAdapter';
 import { generateIso19115Xml } from '../../utils/xmlGenerator';
 import { CompactAccordion } from './CompactAccordion';
+import { KnowledgePassport } from './KnowledgePassport';
 
 interface GlobalLensProps {
   isOpen: boolean;
@@ -53,12 +55,13 @@ export const GlobalLens: React.FC<GlobalLensProps> = ({
   onSwitchWorkspaceTab,
 }) => {
   const [isPinned, setIsPinned] = useState(false);
-  const [activeTab, setActiveTab] = useState<'context' | 'evidence' | 'signal' | 'rosetta' | 'xml' | 'ask'>('context');
+  const [activeTab, setActiveTab] = useState<'context' | 'passport' | 'evidence' | 'signal' | 'rosetta' | 'xml' | 'ask'>('context');
 
   if (!isOpen) return null;
 
   const tabs = [
     { id: 'context', label: 'Context', icon: <Layers className="w-3.5 h-3.5" /> },
+    { id: 'passport', label: 'Passport', icon: <Compass className="w-3.5 h-3.5" /> },
     { id: 'evidence', label: 'Evidence', icon: <Database className="w-3.5 h-3.5" /> },
     { id: 'signal', label: 'Signal', icon: <Activity className="w-3.5 h-3.5" /> },
     { id: 'rosetta', label: 'Rosetta', icon: <Languages className="w-3.5 h-3.5" /> },
@@ -163,6 +166,20 @@ export const GlobalLens: React.FC<GlobalLensProps> = ({
                 </div>
               </CompactAccordion>
             </div>
+          </div>
+        )}
+
+        {/* TAB: KNOWLEDGE PASSPORT */}
+        {activeTab === 'passport' && (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <KnowledgePassport
+              selection={selection}
+              mission={mission}
+              onNavigateTab={(tab) => {
+                onSwitchWorkspaceTab(tab);
+                onClose();
+              }}
+            />
           </div>
         )}
 

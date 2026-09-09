@@ -459,6 +459,7 @@ export type ActiveWorkspaceTab =
   | 'signal'
   | 'rosetta'
   | 'projections'
+  | 'knowledge-tree'
   | 'comet'
   | 'destination-compare'
   | 'map';

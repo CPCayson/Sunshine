@@ -492,31 +492,269 @@ export function buildKnowledgeTree(graph: KnowledgeGraph, rootType: KnowledgeTre
     case 'PROVIDER': {
       return {
         id: 'tree-root-provider',
-        label: 'ORGANIZATIONS & MANUFACTURERS',
+        label: 'PROVIDER ENTITY HIERARCHY (Provider → Platform → Asset → Deployment)',
         kind: 'group',
-        subtitle: 'Equipment providers, research operators, and governing authorities',
+        subtitle: 'Official hierarchy from equipment manufacturers and operating authorities down to dives and datasets',
         provenanceType: 'LOCAL_DERIVED',
         children: [
           {
             id: 'tree-org-hii',
             label: 'Huntington Ingalls Industries (HII) / Hydroid',
             kind: 'organization',
-            subtitle: 'Manufacturer | ROR: https://ror.org/05v8a8r28',
+            subtitle: 'Autonomous Systems Manufacturer | ROR: https://ror.org/05v8a8r28',
+            knowledgeKey: 'KK:organization:hii-unmanned',
             provenanceType: 'IMPORTED_ARTIFACT',
+            evidenceRefChain: ['art-hii-remus620-spec', 'art-fleet-inventory-2025'],
             children: [
               {
                 id: 'tree-hii-manuf-remus620',
-                label: 'MANUFACTURES -> REMUS 620 Autonomous Vehicle Model',
+                label: 'REMUS 620 Autonomous Vehicle Model',
                 kind: 'platformModel',
+                subtitle: 'Modular 600m/1500m AUV Archetype | MANUFACTURES edge from HII',
+                knowledgeKey: 'KK:platform-model:remus-620',
                 provenanceType: 'IMPORTED_ARTIFACT',
-                isLeaf: true
-              },
+                evidenceRefChain: ['art-hii-remus620-spec', 'MANTAS_UxS_Fused_Evidence_Registry.xlsx'],
+                children: [
+                  {
+                    id: 'tree-asset-6401',
+                    label: 'REMUS 620 Hull #6401',
+                    kind: 'physicalAsset',
+                    subtitle: 'Serial: 6401 | Barcode: NOAA-UXS-6401 | OMAO / Ocean Exploration',
+                    knowledgeKey: 'KK:physical-asset:remus-620:6401',
+                    provenanceType: 'IMPORTED_ARTIFACT',
+                    evidenceRefChain: ['art-fleet-inventory-2025', 'art-cruise-en2501-log', 'MANTAS_UxS_Fused_Evidence_Registry.xlsx'],
+                    children: [
+                      {
+                        id: 'tree-dep-dive01-hii',
+                        label: 'EN2501 Dive 01: Penguin Bank SAS Swath',
+                        kind: 'deployment',
+                        subtitle: '14.2h underway survey @ 35m altitude | EMPLOYED Hull #6401',
+                        knowledgeKey: 'KK:deployment:en2501:dive01',
+                        provenanceType: 'IMPORTED_ARTIFACT',
+                        evidenceRefChain: ['art-cruise-en2501-log', 'art-ncei-oiss-manifest'],
+                        children: [
+                          {
+                            id: 'tree-conf-minsas204-dive01',
+                            label: 'CARRIED: Kraken MINSAS SN #204 (Mid-Bay SAS)',
+                            kind: 'instrumentInstance',
+                            subtitle: 'Slot: Belly Payload Bay | 337 kHz Synthetic Aperture Sonar',
+                            knowledgeKey: 'KK:instrument-instance:kraken:minsas:204',
+                            provenanceType: 'IMPORTED_ARTIFACT',
+                            evidenceRefChain: ['art-cruise-en2501-log', 'art-fleet-inventory-2025'],
+                            isLeaf: true
+                          },
+                          {
+                            id: 'tree-data-backscatter-dive01',
+                            label: 'PRODUCED: Acoustic Backscatter GeoTIFF Mosaic (50cm)',
+                            kind: 'dataset',
+                            subtitle: 'File: EN2501_D01_Backscatter_50cm.tif | Verified Archive Artifact',
+                            knowledgeKey: 'KK:dataset:en2501:backscatter-50cm',
+                            provenanceType: 'IMPORTED_ARTIFACT',
+                            evidenceRefChain: ['art-cruise-en2501-log', 'art-ncei-oiss-manifest'],
+                            isLeaf: true
+                          }
+                        ]
+                      },
+                      {
+                        id: 'tree-dep-dive02-hii',
+                        label: 'EN2501 Dive 02: Kaiwi Trough Deep Survey',
+                        kind: 'deployment',
+                        subtitle: '18.5h deep dive to 1,250m depth | EMPLOYED Hull #6401',
+                        knowledgeKey: 'KK:deployment:en2501:dive02',
+                        provenanceType: 'IMPORTED_ARTIFACT',
+                        evidenceRefChain: ['art-cruise-en2501-log', 'art-ncei-oiss-manifest'],
+                        children: [
+                          {
+                            id: 'tree-conf-minsas204-dive02',
+                            label: 'CARRIED: Kraken MINSAS SN #204 (Interferometric SAS)',
+                            kind: 'instrumentInstance',
+                            subtitle: 'Physical serial unit operating at 1,250m depth',
+                            knowledgeKey: 'KK:instrument-instance:kraken:minsas:204',
+                            provenanceType: 'IMPORTED_ARTIFACT',
+                            evidenceRefChain: ['art-cruise-en2501-log'],
+                            isLeaf: true
+                          },
+                          {
+                            id: 'tree-data-bathy-dive02',
+                            label: 'PRODUCED: Bathymetry BAG 1m Gridded Surface',
+                            kind: 'dataset',
+                            subtitle: 'File: EN2501_D02_Bathy_1m.bag | Bathymetric Attributed Grid',
+                            knowledgeKey: 'KK:dataset:en2501:bathy-1m',
+                            provenanceType: 'IMPORTED_ARTIFACT',
+                            evidenceRefChain: ['art-cruise-en2501-log', 'art-ncei-oiss-manifest'],
+                            isLeaf: true
+                          }
+                        ]
+                      },
+                      {
+                        id: 'tree-dep-dive03-hii',
+                        label: 'EN2501 Dive 03: Molokai Escarpment Optical Recon',
+                        kind: 'deployment',
+                        subtitle: '11.8h co-registered optical/laser run | EMPLOYED Hull #6401',
+                        knowledgeKey: 'KK:deployment:en2501:dive03',
+                        provenanceType: 'IMPORTED_ARTIFACT',
+                        evidenceRefChain: ['art-cruise-en2501-log'],
+                        children: [
+                          {
+                            id: 'tree-conf-voyis088-dive03',
+                            label: 'CARRIED: Voyis Insight Pro SN #088 (Optical/Laser)',
+                            kind: 'instrumentInstance',
+                            subtitle: 'Forward optical dome stills and laser scanner',
+                            knowledgeKey: 'KK:instrument-instance:voyis:optical:088',
+                            provenanceType: 'IMPORTED_ARTIFACT',
+                            evidenceRefChain: ['art-cruise-en2501-log', 'art-fleet-inventory-2025'],
+                            isLeaf: true
+                          },
+                          {
+                            id: 'tree-data-opticals-dive03',
+                            label: 'PRODUCED: Molokai Escarpment 4K Optical Stills & Laser Pointcloud',
+                            kind: 'dataset',
+                            subtitle: 'High-speed co-registered subsea color photography',
+                            knowledgeKey: 'KK:dataset:en2501:optical-pointcloud',
+                            provenanceType: 'IMPORTED_ARTIFACT',
+                            evidenceRefChain: ['art-cruise-en2501-log'],
+                            isLeaf: true
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    id: 'tree-asset-6402',
+                    label: 'REMUS 620 Hull #6402',
+                    kind: 'physicalAsset',
+                    subtitle: 'Serial: 6402 | Location: Pocasset, MA | Status: in use',
+                    knowledgeKey: 'KK:physical-asset:remus-620:6402',
+                    provenanceType: 'IMPORTED_ARTIFACT',
+                    evidenceRefChain: ['MANTAS_UxS_Fused_Evidence_Registry.xlsx', 'art-fleet-inventory-2025'],
+                    children: [
+                      {
+                        id: 'tree-conf-6402-minsas',
+                        label: 'CONFIGURED_WITH: Kraken MINSAS (both hulls)',
+                        kind: 'instrumentInstance',
+                        subtitle: 'Payload evidence noted in source registry',
+                        knowledgeKey: 'KK:instrument-instance:kraken:minsas:unassigned',
+                        provenanceType: 'IMPORTED_ARTIFACT',
+                        evidenceRefChain: ['MANTAS_UxS_Fused_Evidence_Registry.xlsx'],
+                        isLeaf: true
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'tree-org-hydronalix',
+            label: 'Hydronalix Inc.',
+            kind: 'organization',
+            subtitle: 'Uncrewed Surface Craft Manufacturer | Green Valley, AZ',
+            knowledgeKey: 'KK:organization:hydronalix',
+            provenanceType: 'IMPORTED_ARTIFACT',
+            evidenceRefChain: ['MANTAS_UxS_Fused_Evidence_Registry.xlsx'],
+            children: [
               {
-                id: 'tree-hii-spec',
-                label: 'PUBLISHED_SPECIFICATION -> HII REMUS 620 Spec Rev 4',
-                kind: 'sourceArtifact',
+                id: 'tree-hydro-manuf-emily',
+                label: 'EMILY Autonomous Surface Vehicle Model',
+                kind: 'platformModel',
+                subtitle: 'Emergency Integrated Lifesaving Lanyard / Remote USV',
+                knowledgeKey: 'KK:platform-model:hydronalix-emily',
                 provenanceType: 'IMPORTED_ARTIFACT',
-                isLeaf: true
+                evidenceRefChain: ['MANTAS_UxS_Fused_Evidence_Registry.xlsx'],
+                children: [
+                  {
+                    id: 'tree-asset-emily2',
+                    label: 'EMILY #2 (CD0004001623)',
+                    kind: 'physicalAsset',
+                    subtitle: 'Honolulu, HI | Acquisition: 2012 | Status: not operational',
+                    knowledgeKey: 'KK:physical-asset:hydronalix-emily:2',
+                    provenanceType: 'IMPORTED_ARTIFACT',
+                    evidenceRefChain: ['MANTAS_UxS_Fused_Evidence_Registry.xlsx'],
+                    children: [
+                      {
+                        id: 'tree-dep-emily2',
+                        label: 'Pacific Habitat Mapping Survey Sortie 01',
+                        kind: 'deployment',
+                        subtitle: 'Shallow coastal reef survey (Honolulu, HI)',
+                        knowledgeKey: 'KK:deployment:emily2:sortie01',
+                        provenanceType: 'IMPORTED_ARTIFACT',
+                        isLeaf: true
+                      }
+                    ]
+                  },
+                  {
+                    id: 'tree-asset-emily5',
+                    label: 'EMILY #5 (CD0004001626)',
+                    kind: 'physicalAsset',
+                    subtitle: 'Honolulu, HI | Acquisition: 2012 | Status: not operational',
+                    knowledgeKey: 'KK:physical-asset:hydronalix-emily:5',
+                    provenanceType: 'IMPORTED_ARTIFACT',
+                    evidenceRefChain: ['MANTAS_UxS_Fused_Evidence_Registry.xlsx'],
+                    isLeaf: true
+                  },
+                  {
+                    id: 'tree-asset-emily9',
+                    label: 'EMILY #9 (CD0004001630)',
+                    kind: 'physicalAsset',
+                    subtitle: 'Honolulu, HI | Acquisition: 2012 | Status: not operational',
+                    knowledgeKey: 'KK:physical-asset:hydronalix-emily:9',
+                    provenanceType: 'IMPORTED_ARTIFACT',
+                    evidenceRefChain: ['MANTAS_UxS_Fused_Evidence_Registry.xlsx'],
+                    isLeaf: true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'tree-org-saildrone',
+            label: 'Saildrone Inc.',
+            kind: 'organization',
+            subtitle: 'Uncrewed Surface Ocean Vehicle Manufacturer & Operator | Alameda, CA',
+            knowledgeKey: 'KK:organization:saildrone',
+            provenanceType: 'IMPORTED_ARTIFACT',
+            evidenceRefChain: ['art-fleet-inventory-2025'],
+            children: [
+              {
+                id: 'tree-saildrone-explorer-model',
+                label: 'Saildrone Explorer Surface Platform Model',
+                kind: 'platformModel',
+                subtitle: 'Wind and solar powered autonomous ocean surface vehicle',
+                knowledgeKey: 'KK:platform-model:saildrone-explorer',
+                provenanceType: 'IMPORTED_ARTIFACT',
+                evidenceRefChain: ['art-fleet-inventory-2025'],
+                children: [
+                  {
+                    id: 'tree-asset-sd1033',
+                    label: 'Saildrone SD-1033',
+                    kind: 'physicalAsset',
+                    subtitle: 'Serial: 1033 | NOAA PMEL Ocean Climate Stations Project',
+                    knowledgeKey: 'KK:physical-asset:saildrone-explorer:1033',
+                    provenanceType: 'IMPORTED_ARTIFACT',
+                    evidenceRefChain: ['art-fleet-inventory-2025'],
+                    children: [
+                      {
+                        id: 'tree-dep-sd1033',
+                        label: 'NOAA PMEL Tropical Pacific Flux Deployment 2024',
+                        kind: 'deployment',
+                        subtitle: '180-day long-duration air-sea carbon and heat exchange mission',
+                        knowledgeKey: 'KK:deployment:pmel:sd1033:2024',
+                        provenanceType: 'IMPORTED_ARTIFACT',
+                        children: [
+                          {
+                            id: 'tree-data-sd1033-flux',
+                            label: 'PRODUCED: High-Resolution Air-Sea CO2 & Heat Flux Timeseries',
+                            kind: 'dataset',
+                            subtitle: 'Hourly pCO2, atmospheric pressure, SST, wind vector series',
+                            knowledgeKey: 'KK:dataset:pmel:sd1033:flux-2024',
+                            provenanceType: 'IMPORTED_ARTIFACT',
+                            isLeaf: true
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           },
@@ -524,15 +762,50 @@ export function buildKnowledgeTree(graph: KnowledgeGraph, rootType: KnowledgeTre
             id: 'tree-org-kraken',
             label: 'Kraken Robotics Inc.',
             kind: 'organization',
-            subtitle: 'Sensor Manufacturer | ROR: https://ror.org/037m4bk91',
+            subtitle: 'Subsea Sensor & Synthetic Aperture Sonar Manufacturer | ROR: https://ror.org/037m4bk91',
+            knowledgeKey: 'KK:organization:kraken-robotics',
             provenanceType: 'IMPORTED_ARTIFACT',
+            evidenceRefChain: ['art-kraken-minsas-spec'],
             children: [
               {
                 id: 'tree-kraken-manuf-minsas',
-                label: 'MANUFACTURES -> Kraken MINSAS-120 SAS',
+                label: 'Kraken MINSAS-120 Synthetic Aperture Sonar (Model)',
                 kind: 'instrumentModel',
+                subtitle: 'Interferometric SAS with 3cm x 3cm along/across-track resolution',
+                knowledgeKey: 'KK:instrument-model:kraken:minsas-120',
                 provenanceType: 'IMPORTED_ARTIFACT',
-                isLeaf: true
+                evidenceRefChain: ['art-kraken-minsas-spec'],
+                children: [
+                  {
+                    id: 'tree-kraken-inst-204',
+                    label: 'Kraken MINSAS SN #204 (Physical Unit)',
+                    kind: 'instrumentInstance',
+                    subtitle: 'Physical chassis mounted on REMUS 620 Hull #6401',
+                    knowledgeKey: 'KK:instrument-instance:kraken:minsas:204',
+                    provenanceType: 'IMPORTED_ARTIFACT',
+                    evidenceRefChain: ['art-fleet-inventory-2025', 'art-cruise-en2501-log'],
+                    children: [
+                      {
+                        id: 'tree-kraken-dep-dive01',
+                        label: 'CARRIED on: EN2501 Dive 01 (Penguin Bank SAS)',
+                        kind: 'deployment',
+                        subtitle: 'Operated 14.2h producing continuous micro-bathymetric SAS swath',
+                        knowledgeKey: 'KK:deployment:en2501:dive01',
+                        provenanceType: 'IMPORTED_ARTIFACT',
+                        isLeaf: true
+                      },
+                      {
+                        id: 'tree-kraken-data-mosaic',
+                        label: 'PRODUCED: Acoustic Backscatter GeoTIFF Mosaic (50cm)',
+                        kind: 'dataset',
+                        subtitle: 'EN2501_D01_Backscatter_50cm.tif verified against NCEI archive profile',
+                        knowledgeKey: 'KK:dataset:en2501:backscatter-50cm',
+                        provenanceType: 'IMPORTED_ARTIFACT',
+                        isLeaf: true
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           },
@@ -540,15 +813,30 @@ export function buildKnowledgeTree(graph: KnowledgeGraph, rootType: KnowledgeTre
             id: 'tree-org-omao',
             label: 'NOAA Office of Marine and Aviation Operations (OMAO)',
             kind: 'organization',
-            subtitle: 'Platform Owner & Fleet Authority',
+            subtitle: 'Government Operating Agency & Platform Owner | Silver Spring, MD',
+            knowledgeKey: 'KK:organization:noaa-omao',
             provenanceType: 'IMPORTED_ARTIFACT',
+            evidenceRefChain: ['art-fleet-inventory-2025'],
             children: [
               {
                 id: 'tree-omao-owns-6401',
-                label: 'OWNS -> REMUS 620 Hull #6401',
+                label: 'OWNS -> REMUS 620 Hull #6401 (Barcode: NOAA-UXS-6401)',
                 kind: 'physicalAsset',
+                subtitle: 'Assigned to NOAA Ocean Exploration / MDBC operations',
+                knowledgeKey: 'KK:physical-asset:remus-620:6401',
                 provenanceType: 'IMPORTED_ARTIFACT',
-                isLeaf: true
+                evidenceRefChain: ['art-fleet-inventory-2025'],
+                children: [
+                  {
+                    id: 'tree-omao-expedition-en2501',
+                    label: 'EMPLOYED IN: EN2501 Hawaiian Ridge Autonomous Mapping',
+                    kind: 'mission',
+                    subtitle: 'NOAA Ocean Exploration multi-leg autonomous expedition',
+                    knowledgeKey: 'KK:mission:en2501',
+                    provenanceType: 'IMPORTED_ARTIFACT',
+                    isLeaf: true
+                  }
+                ]
               }
             ]
           }

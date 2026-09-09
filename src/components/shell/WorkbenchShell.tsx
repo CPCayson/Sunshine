@@ -29,6 +29,7 @@ import { CometAdapterWorkspace } from '../CometAdapterWorkspace';
 import { DestinationCompare } from '../DestinationCompare';
 import { InteractiveOceanMap } from '../InteractiveOceanMap';
 import { UxSDataLifecycle } from '../UxSDataLifecycle';
+import { KnowledgeTreeProjection } from '../KnowledgeTreeProjection';
 import { CheckCircle2 } from 'lucide-react';
 
 interface WorkbenchShellProps {
@@ -316,6 +317,7 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
         return (
           <EvidenceWorkspace
             mission={mission}
+            selection={selection}
             onAcceptClaim={onAcceptClaim}
             onRejectClaim={onRejectClaim}
             onSelectDocucompRef={(ref) => {
@@ -382,6 +384,26 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
 
       case 'rosetta':
         return <RosettaViewer mission={mission} />;
+
+      case 'knowledge-tree':
+        return (
+          <KnowledgeTreeProjection
+            mission={mission}
+            onSelectNodeInLens={(node) => {
+              setSelection({
+                entityName: node.label,
+                entityType: node.kind.toUpperCase(),
+                canonicalRef: node.knowledgeKey || node.canonicalRef,
+                graphNodeId: node.id,
+              });
+              setIsGlobalLensOpen(true);
+            }}
+            onNavigateTab={(dest) => {
+              if (pane === 'PRIMARY') setPrimaryTab(dest);
+              else setSecondaryTab(dest);
+            }}
+          />
+        );
 
       case 'projections':
         return <ProjectionsWorkspace mission={mission} />;

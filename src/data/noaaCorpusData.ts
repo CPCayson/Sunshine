@@ -532,6 +532,62 @@ export const CORPUS_DETERMINISTIC_QUERIES: CorpusCapabilityQuery[] = [
     ]
   },
   {
+    id: 'query-datasets-trace-instrument-instance',
+    question: 'Which datasets trace to a physical instrument instance?',
+    category: 'DATA_PROVEN',
+    rationale: 'Traverses Dataset -> PRODUCED_BY -> InstrumentInstance -> INSTANCE_OF -> InstrumentModel -> CONFIGURED_ON -> PhysicalAsset -> EMPLOYED_IN -> Deployment.',
+    results: [
+      {
+        title: 'Acoustic Backscatter GeoTIFF Mosaic (50cm)',
+        subtitle: 'Traces to Kraken MINSAS SN #204 on REMUS 620 Hull #6401 (Dive 01)',
+        entityId: 'dataset-backscatter-mosaic',
+        entityKind: 'dataset',
+        explanationPath: [
+          'Dataset: Acoustic Backscatter GeoTIFF Mosaic (EN2501_D01_Backscatter_50cm)',
+          'PRODUCED_BY -> InstrumentInstance: Kraken MINSAS SN #204',
+          'INSTANCE_OF -> InstrumentModel: Kraken MINSAS-120 SAS',
+          'CONFIGURED_ON -> PhysicalAsset: REMUS 620 Hull #6401',
+          'EMPLOYED_IN -> Deployment: EN2501 Dive 01 (Penguin Bank SAS)'
+        ],
+        evidenceRefs: ['art-cruise-en2501-log', 'art-ncei-oiss-manifest', 'art-fleet-inventory-2025'],
+        maturity: 'DATA_PROVEN',
+        provenanceType: 'IMPORTED_ARTIFACT'
+      },
+      {
+        title: 'Bathymetry BAG 1m Gridded Surface',
+        subtitle: 'Traces to Kraken MINSAS SN #204 on REMUS 620 Hull #6401 (Dive 02)',
+        entityId: 'dataset-bathymetry-bag',
+        entityKind: 'dataset',
+        explanationPath: [
+          'Dataset: Bathymetry BAG 1m Gridded Surface (EN2501_D02_Bathy_1m.bag)',
+          'PRODUCED_BY -> InstrumentInstance: Kraken MINSAS SN #204',
+          'INSTANCE_OF -> InstrumentModel: Kraken MINSAS-120 SAS',
+          'CONFIGURED_ON -> PhysicalAsset: REMUS 620 Hull #6401',
+          'EMPLOYED_IN -> Deployment: EN2501 Dive 02 (Kaiwi Trough Deep)'
+        ],
+        evidenceRefs: ['art-cruise-en2501-log', 'art-ncei-oiss-manifest'],
+        maturity: 'DATA_PROVEN',
+        provenanceType: 'IMPORTED_ARTIFACT'
+      },
+      {
+        title: 'Molokai Escarpment 4K Optical Stills & Laser Pointcloud',
+        subtitle: 'Traces to Voyis Insight Pro SN #088 on REMUS 620 Hull #6401 (Dive 03)',
+        entityId: 'dataset-optical-stills',
+        entityKind: 'dataset',
+        explanationPath: [
+          'Dataset: Molokai Escarpment 4K Optical Stills & Laser Pointcloud',
+          'PRODUCED_BY -> InstrumentInstance: Voyis Insight Pro SN #088',
+          'INSTANCE_OF -> InstrumentModel: Voyis Insight Pro Optical/Laser',
+          'CONFIGURED_ON -> PhysicalAsset: REMUS 620 Hull #6401',
+          'EMPLOYED_IN -> Deployment: EN2501 Dive 03 (Molokai Escarpment Recon)'
+        ],
+        evidenceRefs: ['art-cruise-en2501-log', 'art-fleet-inventory-2025'],
+        maturity: 'DATA_PROVEN',
+        provenanceType: 'IMPORTED_ARTIFACT'
+      }
+    ]
+  },
+  {
     id: 'query-remus-produced-datasets',
     question: 'Which REMUS assets have produced datasets?',
     category: 'DATA_PROVEN',
