@@ -8,13 +8,10 @@ import {
 import {
   Maximize2,
   Minimize2,
-  MinusSquare,
   Layers,
-  Sparkles,
-  ChevronDown,
-  ArrowUpDown
 } from 'lucide-react';
 import { PaneLens } from './PaneLens';
+import { CorpusPaneLens } from './CorpusPaneLens';
 
 interface FocusPaneProps {
   id: PaneId;
@@ -48,8 +45,10 @@ export const FocusPane: React.FC<FocusPaneProps> = ({
   children,
 }) => {
   const [isLocalLensOpen, setIsLocalLensOpen] = useState(false);
+  const isSourceBackedCorpusSelection =
+    Boolean(selection.sourceObservationId?.startsWith('corpus-observation-')) ||
+    Boolean(selection.graphNodeId?.startsWith('corpus-asset-'));
 
-  // Suggested companions for smart pairing without auto-switching
   const getCompanionSuggestion = (): { tab: ActiveWorkspaceTab; label: string } | null => {
     switch (activeTab) {
       case 'lifecycle':
@@ -83,7 +82,6 @@ export const FocusPane: React.FC<FocusPaneProps> = ({
         isFocused ? 'ring-1 ring-cyan-500/40 z-10' : 'opacity-95'
       }`}
     >
-      {/* Subtle Pane Toolbar / Header */}
       <div className="h-7 px-3 bg-[#060d19] border-b border-cyan-500/15 flex items-center justify-between font-mono text-xs select-none shrink-0">
         <div className="flex items-center gap-2">
           <span className={`w-1.5 h-1.5 rounded-full ${isFocused ? 'bg-cyan-400' : 'bg-slate-600'}`} />
@@ -93,8 +91,12 @@ export const FocusPane: React.FC<FocusPaneProps> = ({
           <span className="text-[10px] text-slate-500 hidden sm:inline">
             ({activeTab})
           </span>
+          {isSourceBackedCorpusSelection && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded border border-amber-700/50 bg-amber-950/20 text-amber-300">
+              IMPORTED EVIDENCE
+            </span>
+          )}
 
-          {/* Smart Companion Pair Hint */}
           {companion && onSuggestCompanion && id === 'PRIMARY' && (
             <button
               onClick={(e) => {
@@ -109,7 +111,6 @@ export const FocusPane: React.FC<FocusPaneProps> = ({
           )}
         </div>
 
-        {/* Right Pane Controls: Local Lens + Maximize */}
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => {
@@ -140,21 +141,29 @@ export const FocusPane: React.FC<FocusPaneProps> = ({
         </div>
       </div>
 
-      {/* Pane Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
         <div className="flex-1 flex flex-col overflow-hidden">
           {children}
         </div>
 
-        {/* Local Slide-over Lens */}
-        <PaneLens
-          isOpen={isLocalLensOpen}
-          onClose={() => setIsLocalLensOpen(false)}
-          paneView={activeTab}
-          selection={selection}
-          mission={mission}
-          onNavigateTab={onSwitchTab}
-        />
+        {isSourceBackedCorpusSelection ? (
+          <CorpusPaneLens
+            isOpen={isLocalLensOpen}
+            onClose={() => setIsLocalLensOpen(false)}
+            selection={selection}
+            mission={mission}
+            onNavigateTab={onSwitchTab}
+          />
+        ) : (
+          <PaneLens
+            isOpen={isLocalLensOpen}
+            onClose={() => setIsLocalLensOpen(false)}
+            paneView={activeTab}
+            selection={selection}
+            mission={mission}
+            onNavigateTab={onSwitchTab}
+          />
+        )}
       </div>
     </section>
   );
