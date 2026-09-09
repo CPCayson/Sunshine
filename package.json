@@ -11,7 +11,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "operational:test": "tsx scripts/runOperationalContractGate.ts",
-    "test": "npm run operational:test"
+    "searchability:test": "tsx scripts/runSearchabilityContractGate.ts",
+    "test": "npm run operational:test && npm run searchability:test"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
