@@ -1,5 +1,14 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, CircleDashed, Database, GitBranch, Key, ShieldCheck, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  CircleDashed,
+  Database,
+  GitBranch,
+  ShieldCheck,
+  X,
+} from 'lucide-react';
 import { ActiveWorkspaceTab, UxSMission, WorkspaceSelection } from '../../types';
 import { VERIFIED_NOAA_UXS_CORPUS, buildKnowledgeKeyCandidate } from '../../data/verifiedNoaaCorpus';
 import {
@@ -17,9 +26,9 @@ interface CorpusPaneLensProps {
 }
 
 const stateClass = (state: string) => {
-  if (state === 'SUPPORTED_BY_SOURCE_ROW') return 'text-emerald-300 border-emerald-800 bg-emerald-950/20';
-  if (state === 'SOURCE_MENTION_ONLY') return 'text-amber-300 border-amber-800 bg-amber-950/20';
-  return 'text-slate-400 border-slate-800 bg-[#050a14]';
+  if (state === 'SUPPORTED_BY_SOURCE_ROW') return 'text-emerald-300';
+  if (state === 'SOURCE_MENTION_ONLY') return 'text-amber-300';
+  return 'text-slate-500';
 };
 
 export const CorpusPaneLens: React.FC<CorpusPaneLensProps> = ({
@@ -38,8 +47,8 @@ export const CorpusPaneLens: React.FC<CorpusPaneLensProps> = ({
 
   if (!record) {
     return (
-      <aside className="absolute top-0 right-0 bottom-0 w-80 sm:w-96 bg-[#060c18]/95 border-l border-cyan-500/30 z-30 p-4 text-xs text-slate-400">
-        <button onClick={onClose} className="float-right p-1"><X className="w-4 h-4" /></button>
+      <aside className="absolute top-0 right-0 bottom-0 w-[420px] max-w-[92vw] bg-[#060c18]/96 border-l border-slate-800 z-30 p-6 text-sm text-slate-500">
+        <button onClick={onClose} className="float-right p-1 text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
         No source-backed corpus record resolved for this selection.
       </aside>
     );
@@ -49,77 +58,71 @@ export const CorpusPaneLens: React.FC<CorpusPaneLensProps> = ({
   const assessments = getSourceBackedRelationshipAssessment(record);
 
   return (
-    <aside className="absolute top-0 right-0 bottom-0 w-80 sm:w-96 bg-[#060c18]/95 border-l border-cyan-500/30 backdrop-blur-md flex flex-col z-30 shadow-2xl font-sans">
-      <div className="p-3 bg-[#081224] border-b border-cyan-500/20 flex items-center justify-between font-mono">
+    <aside className="absolute top-0 right-0 bottom-0 w-[420px] max-w-[92vw] bg-[#060c18]/96 border-l border-slate-800 backdrop-blur-md flex flex-col z-30 shadow-2xl font-sans">
+      <div className="px-5 py-4 bg-[#081224] border-b border-slate-800 flex items-center justify-between">
         <div>
-          <div className="text-xs font-bold text-slate-100 tracking-wider">CORPUS KNOWLEDGE PASSPORT</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">source-backed selection · no canonical mutation</div>
+          <div className="text-sm font-semibold text-slate-100">Knowledge passport</div>
+          <div className="text-xs text-slate-600 mt-0.5">Source-backed corpus selection</div>
         </div>
-        <button onClick={onClose} className="p-1 text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+        <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-900 rounded-lg"><X className="w-4 h-4" /></button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-xs">
-        <div className="p-3 rounded-xl border border-cyan-500/20 bg-[#081224] space-y-2">
-          <div className="text-[10px] text-cyan-400">PHYSICAL ASSET OBSERVATION</div>
-          <div className="text-base font-bold text-slate-100">{record.manufacturer} {record.model} {record.serialOrIdentifier ? `#${record.serialOrIdentifier}` : ''}</div>
-          <div className="text-slate-400">{record.platformClass} · {record.status || 'status unknown'}</div>
-          <div className="pt-2 border-t border-slate-800">
-            <div className="text-[9px] text-slate-500">KNOWLEDGE KEY CANDIDATE</div>
-            <div className="mt-1 text-cyan-300 break-all">{key}</div>
-          </div>
-        </div>
+      <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
+        <section>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-cyan-500">Physical asset observation</div>
+          <h3 className="text-xl font-semibold text-slate-100 mt-2 leading-snug">{record.manufacturer} {record.model} {record.serialOrIdentifier ? `#${record.serialOrIdentifier}` : ''}</h3>
+          <p className="text-sm text-slate-500 mt-2">{record.platformClass} · {record.status || 'status unknown'}</p>
+        </section>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Info label="Source ref" value={record.sourceRef} />
-          <Info label="Identity" value={record.identityState} />
-          <Info label="Location" value={record.physicalLocation || 'UNKNOWN'} />
-          <Info label="Source years" value={record.sourceYears.join(', ')} />
-        </div>
+        <section className="rounded-2xl border border-cyan-900/40 bg-cyan-950/10 p-5">
+          <div className="text-xs text-slate-500">Knowledge Key candidate</div>
+          <div className="mt-2 font-mono text-sm text-cyan-300 break-all leading-relaxed">{key}</div>
+          <p className="mt-3 text-sm text-slate-500 leading-relaxed">Candidate semantic address only. Acceptance remains a separate reconciliation decision.</p>
+        </section>
 
-        <div className="p-3 rounded-lg border border-amber-700/30 bg-amber-950/10 flex gap-2 text-slate-400">
-          <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
-          <span>Imported inventory evidence is not a deployment claim. The candidate Knowledge Key remains separate from acceptance into canonical mission knowledge.</span>
-        </div>
+        <section className="rounded-2xl border border-amber-800/30 bg-amber-950/10 p-4 flex gap-3">
+          <AlertTriangle className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" />
+          <p className="text-sm text-slate-500 leading-relaxed">Imported inventory evidence is not a deployment claim and does not mutate the accepted mission.</p>
+        </section>
 
-        <div className="space-y-2">
-          <div className="text-[10px] uppercase tracking-wider text-slate-500">Relationship evidence</div>
+        <section className="space-y-3">
+          <div className="text-xs text-slate-500">Relationship evidence</div>
           {assessments.map((assessment) => (
-            <div key={assessment.predicate} className={`p-3 rounded-lg border ${stateClass(assessment.state)}`}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-bold">{assessment.predicate}</span>
-                {assessment.state === 'SUPPORTED_BY_SOURCE_ROW' ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <CircleDashed className="w-3.5 h-3.5" />}
+            <div key={assessment.predicate} className="py-3 border-b border-slate-800 last:border-b-0">
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-mono text-sm text-slate-200">{assessment.predicate}</span>
+                <div className={`flex items-center gap-1.5 text-[10px] uppercase tracking-wider ${stateClass(assessment.state)}`}>
+                  {assessment.state === 'SUPPORTED_BY_SOURCE_ROW' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <CircleDashed className="w-3.5 h-3.5" />}
+                  <span>{assessment.state.replace(/_/g, ' ')}</span>
+                </div>
               </div>
-              <div className="mt-1 text-[9px] font-bold">{assessment.state}</div>
-              <div className="mt-1 text-[10px] text-slate-400 leading-relaxed">{assessment.explanation}</div>
+              <p className="mt-2 text-sm text-slate-500 leading-relaxed">{assessment.explanation}</p>
             </div>
           ))}
-        </div>
+        </section>
 
-        <div className="p-3 rounded-lg border border-slate-800 bg-[#050a14] space-y-2">
-          <div className="flex items-center gap-2 text-slate-200 font-bold"><Database className="w-3.5 h-3.5 text-cyan-400" />SOURCE EVIDENCE</div>
-          <div className="text-slate-400">Artifact: {record.sourceArtifact}</div>
-          <div className="text-slate-400">Use context: {record.missionContext || 'UNKNOWN'}</div>
-          <div className="text-slate-400">Payload text: {record.payloadEvidence || 'NONE'}</div>
-          <div className="text-amber-300">Provenance: {record.provenanceType}</div>
-        </div>
+        <details className="rounded-2xl border border-slate-800 bg-[#07101c] group">
+          <summary className="list-none cursor-pointer p-4 flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium text-slate-200">Source detail</div>
+              <div className="text-xs text-slate-600 mt-1">Provenance, context and raw evidence</div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-500 transition-transform group-open:rotate-90" />
+          </summary>
+          <div className="border-t border-slate-800 p-4 space-y-4 text-sm">
+            <div><span className="text-slate-600">Source ref</span><div className="mt-1 text-slate-300 font-mono text-xs break-all">{record.sourceRef}</div></div>
+            <div><span className="text-slate-600">Artifact</span><div className="mt-1 text-slate-300">{record.sourceArtifact}</div></div>
+            <div><span className="text-slate-600">Use context</span><div className="mt-1 text-slate-300">{record.missionContext || 'UNKNOWN'}</div></div>
+            <div><span className="text-slate-600">Payload text</span><div className="mt-1 text-slate-300">{record.payloadEvidence || 'NONE'}</div></div>
+            <div><span className="text-slate-600">Provenance</span><div className="mt-1 text-amber-300">{record.provenanceType}</div></div>
+          </div>
+        </details>
+      </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => onNavigateTab?.('evidence')} className="p-2 rounded border border-emerald-800 bg-emerald-950/20 text-emerald-300 flex items-center justify-center gap-1"><ShieldCheck className="w-3.5 h-3.5" />EVIDENCE</button>
-          <button onClick={() => onNavigateTab?.('graph')} className="p-2 rounded border border-cyan-800 bg-cyan-950/20 text-cyan-300 flex items-center justify-center gap-1"><GitBranch className="w-3.5 h-3.5" />GRAPH</button>
-        </div>
-
-        <div className="p-3 rounded-lg border border-slate-800 text-[10px] text-slate-500 flex gap-2">
-          <Key className="w-3.5 h-3.5 shrink-0" />
-          <span>This lens intentionally does not show legacy fixture serials, provider capability specs, EN2501 dive claims, DATA_PROVEN status, or archive outcomes unless separate source-backed evidence is added.</span>
-        </div>
+      <div className="p-4 border-t border-slate-800 grid grid-cols-2 gap-2 bg-[#050a14]">
+        <button onClick={() => onNavigateTab?.('evidence')} className="p-2.5 rounded-xl border border-emerald-800/40 bg-emerald-950/15 text-emerald-300 flex items-center justify-center gap-2 text-xs"><ShieldCheck className="w-3.5 h-3.5" />Evidence</button>
+        <button onClick={() => onNavigateTab?.('graph')} className="p-2.5 rounded-xl border border-cyan-800/40 bg-cyan-950/15 text-cyan-300 flex items-center justify-center gap-2 text-xs"><GitBranch className="w-3.5 h-3.5" />Graph</button>
       </div>
     </aside>
   );
 };
-
-const Info: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div className="p-2.5 rounded-lg border border-slate-800 bg-[#050a14] min-w-0">
-    <div className="text-[9px] text-slate-500 uppercase">{label}</div>
-    <div className="mt-1 text-[10px] text-slate-200 break-all">{value}</div>
-  </div>
-);
