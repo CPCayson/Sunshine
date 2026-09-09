@@ -11,8 +11,8 @@ import {
 import {
   SEED_CMR_OBSERVATION,
   SEED_ONESTOP_OBSERVATION,
-  compareDestinationWithCanonical,
 } from '../services/destinationReconciliationService';
+import { compareOperationalDestinationWithCanonical } from '../services/destinationOperationalInterpreter';
 import { runQaJurisdictionTests } from '../services/qaJurisdictionTest';
 import {
   buildUniversalExpectedObserved,
@@ -75,8 +75,8 @@ export const DestinationCompare: React.FC<DestinationCompareProps> = ({
     }
   }, [fingerprint]);
 
-  const oneStopResult = compareDestinationWithCanonical(mission, oneStopObs, 'OneStop');
-  const cmrResult = compareDestinationWithCanonical(mission, cmrObs, 'CMR');
+  const oneStopResult = compareOperationalDestinationWithCanonical(mission, oneStopObs, 'OneStop');
+  const cmrResult = compareOperationalDestinationWithCanonical(mission, cmrObs, 'CMR');
   const qaTestResults = runQaJurisdictionTests(mission);
   const universalComparisons = buildUniversalExpectedObserved(mission, {
     oneStopObservation: oneStopObs,
@@ -246,6 +246,9 @@ export const DestinationCompare: React.FC<DestinationCompareProps> = ({
               </div>
               <div>
                 Current destination mode: OneStop {oneStopMode} · CMR {cmrMode}.
+              </div>
+              <div>
+                Supported observation states: MATCH · MISMATCH · MISSING · EXTRA · NOT_TESTED · UNVERIFIABLE · STALE.
               </div>
             </div>
           </details>
