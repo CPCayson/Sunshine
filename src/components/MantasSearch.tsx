@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  AlertTriangle,
   CheckCircle2,
   Database,
   Download,
@@ -11,7 +10,9 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { FederatedSearchResult, UxSMission } from '../types';
+import { DiscoveryIntakeWorkspace } from './DiscoveryIntakeWorkspace';
 import {
+  DiscoveryIntakeDraft,
   RankedDiscoveryHit,
   SearchabilityResponse,
   buildDiscoveryIntakeDraft,
@@ -46,6 +47,7 @@ const sourceClass = (source: RankedDiscoveryHit['source']) => {
 export const MantasSearch: React.FC<MantasSearchProps> = ({
   currentMission,
   onPullAsEvidence,
+  onSelectAsMission,
   onSwitchTab,
 }) => {
   const [searchQuery, setSearchQuery] = useState('remus');
@@ -53,6 +55,7 @@ export const MantasSearch: React.FC<MantasSearchProps> = ({
   const [selected, setSelected] = useState<RankedDiscoveryHit | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [intakeOpen, setIntakeOpen] = useState(false);
 
   const runSearch = async () => {
     const q = searchQuery.trim();
@@ -76,21 +79,19 @@ export const MantasSearch: React.FC<MantasSearchProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const groupedDiscovery = useMemo(() => {
-    return {
-      oneStop: response?.hits.filter((hit) => hit.source === 'OneStop') || [],
-      erddap: response?.hits.filter((hit) => hit.source === 'ERDDAP') || [],
-      cometPrimary: response?.cometContext.filter((hit) => hit.recordGroupScope === 'MANTAS_PRIMARY') || [],
-      cometOther: response?.cometContext.filter((hit) => hit.recordGroupScope !== 'MANTAS_PRIMARY') || [],
-    };
-  }, [response]);
+  const groupedDiscovery = useMemo(() => ({
+    oneStop: response?.hits.filter((hit) => hit.source === 'OneStop') || [],
+    erddap: response?.hits.filter((hit) => hit.source === 'ERDDAP') || [],
+    cometPrimary: response?.cometContext.filter((hit) => hit.recordGroupScope === 'MANTAS_PRIMARY') || [],
+    cometOther: response?.cometContext.filter((hit) => hit.recordGroupScope !== 'MANTAS_PRIMARY') || [],
+  }), [response]);
 
   const importHit = (hit: RankedDiscoveryHit) => {
     const draft = buildDiscoveryIntakeDraft(hit);
     saveDiscoveryIntakeDraft(draft);
     onPullAsEvidence(discoveryHitToFederatedResult(hit));
     setNotice(`Imported ${hit.source} result into a reconciliation draft. Canonical mission was not changed.`);
-    onSwitchTab('discovery-intake');
+    setIntakeOpen(true);
   };
 
   const pullEvidence = (hit: RankedDiscoveryHit) => {
@@ -98,11 +99,70 @@ export const MantasSearch: React.FC<MantasSearchProps> = ({
     setNotice(`Pulled ${hit.source} observation into Evidence. Canonical mission was not changed.`);
   };
 
+  const acceptField = (path: string, value: any) => {
+    if (path === 'title') return onSelectAsMission({ title: String(value) });
+    if (path === 'abstract') return onSelectAsMission({ abstract: String(value) });
+    if (path === 'dateStart') return onSelectAsMission({ dateStart: String(value) });
+    if (path === 'dateEnd') return onSelectAsMission({ dateEnd: String(value) });
+    if (path === 'instruments') return onSelectAsMission({ instruments: Array.isArray(value) ? value : [String(value)] });
+    if (path === 'platform.name') {
+      return onSelectAsMission({ platform: { ...currentMission.platform, name: String(value) } });
+    }
+    if (path === 'spatialExtent' && value && typeof value === 'object') {
+      return onSelectAsMission({ spatialExtent: { ...currentMission.spatialExtent, ...value } });
+    }
+    if (path.startsWith('keywords.')) {
+      const key = path.split('.')[1] as keyof UxSMission['keywords'];
+      return onSelectAsMission({
+        keywords: {
+          ...currentMission.keywords,
+          [key]: Array.isArray(value) ? value : [String(value)],
+        },
+      });
+    }
+  };
+
+  const acceptAll = (candidate: DiscoveryIntakeDraft['candidate']) => {
+    const partial: Partial<UxSMission> = {};
+    if (candidate.title) partial.title = candidate.title;
+    if (candidate.abstract) partial.abstract = candidate.abstract;
+    if (candidate.dateStart) partial.dateStart = candidate.dateStart;
+    if (candidate.dateEnd) partial.dateEnd = candidate.dateEnd;
+    if (candidate.instruments) partial.instruments = candidate.instruments;
+    if (candidate.platform) partial.platform = { ...currentMission.platform, ...candidate.platform };
+    if (candidate.spatialExtent) partial.spatialExtent = { ...currentMission.spatialExtent, ...candidate.spatialExtent };
+    if (candidate.keywords) {
+      partial.keywords = {
+        gcmdScience: candidate.keywords.gcmdScience || currentMission.keywords.gcmdScience,
+        gcmdPlatforms: candidate.keywords.gcmdPlatforms || currentMission.keywords.gcmdPlatforms,
+        freeKeywords: candidate.keywords.freeKeywords || currentMission.keywords.freeKeywords,
+      };
+    }
+    if (candidate.doi) partial.doi = candidate.doi;
+    onSelectAsMission(partial);
+    setNotice('Accepted the selected intake candidate fields into the working mission. Source evidence remains attached for review.');
+  };
+
+  if (intakeOpen) {
+    return (
+      <DiscoveryIntakeWorkspace
+        mission={currentMission}
+        onAcceptField={acceptField}
+        onAcceptAll={acceptAll}
+        onOpenSignal={() => onSwitchTab('signal')}
+        onBackToSearch={() => setIntakeOpen(false)}
+      />
+    );
+  }
+
   const renderHit = (hit: RankedDiscoveryHit, mode: 'DISCOVERY' | 'CONTEXT') => (
-    <button
+    <div
       key={hit.id}
+      role="button"
+      tabIndex={0}
       onClick={() => setSelected(hit)}
-      className={`w-full text-left rounded-xl border p-4 transition-colors ${selected?.id === hit.id ? 'border-cyan-600/60 bg-cyan-950/10' : 'border-slate-800 bg-[#08101d] hover:border-slate-700'}`}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelected(hit); }}
+      className={`w-full text-left rounded-xl border p-4 transition-colors cursor-pointer ${selected?.id === hit.id ? 'border-cyan-600/60 bg-cyan-950/10' : 'border-slate-800 bg-[#08101d] hover:border-slate-700'}`}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
@@ -130,21 +190,21 @@ export const MantasSearch: React.FC<MantasSearchProps> = ({
       <div className="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
         <div className="text-[10px] font-mono text-slate-600">{hit.provenanceType}</div>
         <div className="flex gap-2">
-          <span
+          <button
             onClick={(event) => { event.stopPropagation(); pullEvidence(hit); }}
-            className="px-2.5 py-1.5 rounded border border-slate-700 text-xs text-slate-300 hover:border-cyan-700 cursor-pointer"
+            className="px-2.5 py-1.5 rounded border border-slate-700 text-xs text-slate-300 hover:border-cyan-700"
           >
             Pull evidence
-          </span>
-          <span
+          </button>
+          <button
             onClick={(event) => { event.stopPropagation(); importHit(hit); }}
-            className="px-2.5 py-1.5 rounded bg-cyan-600 text-slate-950 text-xs font-semibold hover:bg-cyan-500 cursor-pointer"
+            className="px-2.5 py-1.5 rounded bg-cyan-600 text-slate-950 text-xs font-semibold hover:bg-cyan-500"
           >
             {mode === 'CONTEXT' ? 'Use as evidence draft' : 'Import'}
-          </span>
+          </button>
         </div>
       </div>
-    </button>
+    </div>
   );
 
   const oneStopLane = response?.lanes.find((lane) => lane.source === 'OneStop');
@@ -158,7 +218,7 @@ export const MantasSearch: React.FC<MantasSearchProps> = ({
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 uppercase tracking-wider"><Search className="w-4 h-4" /> Searchability</div>
           <h2 className="mt-2 text-xl font-semibold">Find evidence. Rank it. Reconcile before acceptance.</h2>
-          <p className="mt-1 text-sm text-slate-500 max-w-3xl">OneStop and PMEL ERDDAP are discovery lanes. CoMET is workspace context. STAC below is a local projection of the accepted mission. DocuComp/GCMD enrich meaning; they are not discovery authorities.</p>
+          <p className="mt-1 text-sm text-slate-500 max-w-3xl">OneStop and PMEL ERDDAP are discovery lanes. CoMET is workspace context. STAC below is a local projection of the current mission. DocuComp/GCMD enrich meaning; they are not discovery authorities.</p>
         </div>
 
         <form onSubmit={(event) => { event.preventDefault(); void runSearch(); }} className="flex gap-2">
@@ -218,7 +278,7 @@ export const MantasSearch: React.FC<MantasSearchProps> = ({
             <div className="rounded-xl border border-purple-900/50 bg-purple-950/10 p-4">
               <div className="text-xs font-mono text-purple-300">LOCAL STAC PROJECTION</div>
               <div className="mt-2 font-medium">{currentMission.title}</div>
-              <div className="mt-1 text-xs text-slate-500">Projected from the accepted working mission. This is not an external STAC API hit.</div>
+              <div className="mt-1 text-xs text-slate-500">Projected from the current Zen mission. This is not an external STAC API hit.</div>
               <button onClick={() => onSwitchTab('projections')} className="mt-3 text-xs text-purple-300 underline">Inspect projection</button>
             </div>
             <div className="rounded-xl border border-slate-800 bg-[#08101d] p-4">
