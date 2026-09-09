@@ -2,36 +2,91 @@
 
 @layer base {
   body {
-    background-color: #060b14;
+    background-color: #050a12;
     color: #e2e8f0;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
+    line-height: 1.5;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 }
 
-/* Custom scrollbar for scientific code & workbench */
+/* Calm workbench defaults: preserve meaning, remove decorative noise. */
+:where(
+  #manta-compact-command-header,
+  #global-workbench-lens-slideover,
+  #mission-graph-workspace,
+  #evidence-workspace-container,
+  #signal-assurance-workspace,
+  #rosetta-viewer-workspace,
+  #projections-workspace,
+  #destination-compare-surface
+) [class*="shadow"] {
+  box-shadow: none !important;
+}
+
+:where(
+  #manta-compact-command-header,
+  #global-workbench-lens-slideover,
+  #mission-graph-workspace,
+  #evidence-workspace-container,
+  #signal-assurance-workspace,
+  #rosetta-viewer-workspace,
+  #projections-workspace,
+  #destination-compare-surface
+) .animate-pulse {
+  animation: none !important;
+}
+
+:where(
+  #global-workbench-lens-slideover,
+  #mission-graph-workspace,
+  #evidence-workspace-container,
+  #signal-assurance-workspace,
+  #rosetta-viewer-workspace,
+  #projections-workspace,
+  #destination-compare-surface
+) [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 1px solid rgba(103, 232, 249, 0.65);
+  outline-offset: 2px;
+}
+
+/* Quiet scrollbars: present when needed, never visually dominant. */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #080f1c;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #182b48;
-  border-radius: 3px;
+  background: #1b2a40;
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #00e5ff;
+  background: #30445f;
 }
 
-/* Hide scrollbar for tabs */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
