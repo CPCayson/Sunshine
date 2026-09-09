@@ -56,8 +56,6 @@ export const PaneLens: React.FC<PaneLensProps> = ({
   mission,
   onNavigateTab,
 }) => {
-  if (!isOpen) return null;
-
   // Determine local contextual tabs based on active pane view
   const getTabsForPane = () => {
     switch (paneView) {
@@ -88,6 +86,8 @@ export const PaneLens: React.FC<PaneLensProps> = ({
   React.useEffect(() => {
     setActiveTab('Passport');
   }, [paneView, selection.canonicalRef, selection.entityName]);
+
+  if (!isOpen) return null;
 
   const handleAction = (actionName: string) => {
     setActionNotice(`Executing ${actionName}...`);

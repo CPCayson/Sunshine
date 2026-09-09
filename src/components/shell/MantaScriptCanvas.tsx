@@ -74,8 +74,6 @@ export const MantaScriptCanvas: React.FC<MantaScriptCanvasProps> = ({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   // Search execution against FEDERATED_SEARCH_INDEX
   const searchResults = React.useMemo(() => {
     if (!query.trim() || mode !== 'SEARCH') return [];
@@ -87,6 +85,8 @@ export const MantaScriptCanvas: React.FC<MantaScriptCanvasProps> = ({
         (item.authority && item.authority.toLowerCase().includes(q))
     );
   }, [query, mode]);
+
+  if (!isOpen) return null;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
