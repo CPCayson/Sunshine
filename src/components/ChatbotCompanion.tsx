@@ -7,9 +7,6 @@ import {
   User,
   ExternalLink,
   Globe,
-  Check,
-  RefreshCw,
-  Search,
   CheckCircle2,
   Cpu
 } from 'lucide-react';
@@ -57,7 +54,6 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
 
   return (
     <div id="manta-ai-chatbot-container" className="flex-1 flex flex-col bg-[#070c17] text-slate-200 overflow-hidden font-sans">
-      {/* Chatbot Header */}
       <div className="px-3.5 py-2.5 bg-[#0a1220] border-b border-cyan-500/20 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-950/80 border border-purple-500/40 text-purple-300">
@@ -65,15 +61,14 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
           </div>
           <div>
             <span className="text-xs font-semibold text-cyan-100 font-sans">
-              MANTA Companion AI
+              MANTA Advisory AI
             </span>
             <span className="text-[10px] text-cyan-400 font-mono ml-2">
-              Search Grounded
+              Search Grounded · Not Authority
             </span>
           </div>
         </div>
 
-        {/* Model Selector Badge */}
         <div className="flex items-center gap-1.5">
           <Cpu className="w-3 h-3 text-slate-400" />
           <select
@@ -89,7 +84,10 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
         </div>
       </div>
 
-      {/* Message Thread */}
+      <div className="px-4 py-2 border-b border-slate-900 text-[10px] text-slate-500 leading-relaxed">
+        Suggestions are advisory evidence for review. They do not directly change Zen, CoMET, or OISS authority state.
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg) => (
           <div
@@ -107,7 +105,7 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
               ) : (
                 <>
                   <Bot className="w-3 h-3 text-purple-400" />
-                  <span className="text-purple-300 font-semibold">MANTA Lens AI</span>
+                  <span className="text-purple-300 font-semibold">MANTA Advisory AI</span>
                   {msg.modelUsed && (
                     <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-950/60 border border-purple-800 text-purple-300">
                       {msg.modelUsed}
@@ -118,7 +116,6 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
               )}
             </div>
 
-            {/* Bubble */}
             <div
               className={`max-w-[92%] rounded-xl p-3.5 text-xs leading-relaxed shadow-sm ${
                 msg.sender === 'user'
@@ -130,32 +127,30 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
                 <ReactMarkdown>{msg.text}</ReactMarkdown>
               </div>
 
-              {/* Actionable JSON Suggestion Card if assistant provided structured updates */}
               {msg.sender === 'assistant' && parseSuggestedUpdates(msg.text) && (
-                <div className="mt-3 p-2.5 rounded-lg bg-[#070e1a] border border-emerald-500/40 text-[11px] font-sans">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-semibold text-emerald-300 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      Suggested Metadata Updates Detected
+                <div className="mt-3 p-2.5 rounded-lg bg-[#070e1a] border border-amber-500/35 text-[11px] font-sans">
+                  <div className="flex items-center justify-between mb-1.5 gap-3">
+                    <span className="font-semibold text-amber-200 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-300" />
+                      Candidate metadata suggestion
                     </span>
                     <button
                       onClick={() => onApplySuggestedUpdates(parseSuggestedUpdates(msg.text))}
-                      className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold text-[10px] font-mono transition-transform active:scale-95 cursor-pointer"
+                      className="px-2.5 py-1 rounded border border-amber-500/35 bg-amber-950/20 hover:bg-amber-950/35 text-amber-200 font-semibold text-[10px] font-mono transition-transform active:scale-95 cursor-pointer"
                     >
-                      Apply to Form & Map
+                      Stage for review
                     </button>
                   </div>
-                  <div className="text-[10px] font-mono text-slate-300">
-                    Click above to automatically update the form, coordinates, and GCMD keywords!
+                  <div className="text-[10px] font-mono text-slate-400">
+                    Staging does not silently write accepted mission meaning or destination state.
                   </div>
                 </div>
               )}
 
-              {/* Grounding Sources */}
               {msg.groundingSources && msg.groundingSources.length > 0 && (
                 <div className="mt-2.5 pt-2 border-t border-cyan-500/20 text-[10px]">
                   <span className="text-slate-400 font-mono flex items-center gap-1 mb-1">
-                    <Globe className="w-3 h-3 text-cyan-400" /> Google Search Sources:
+                    <Globe className="w-3 h-3 text-cyan-400" /> Search sources:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {msg.groundingSources.map((src, i) => (
@@ -180,19 +175,18 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
         {isLoading && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-[#0e192c] border border-cyan-500/20 text-xs text-cyan-300 font-mono animate-pulse mr-4">
             <Sparkles className="w-4 h-4 text-cyan-400 animate-spin" />
-            <span>Consulting NOAA NCEI & CoMET CEDIT Knowledge Base...</span>
+            <span>Gathering grounded context...</span>
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Prompts Strip */}
       <div className="px-3 py-1.5 bg-[#09101d] border-t border-cyan-500/20 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
         <button
           onClick={() =>
             handleQuickPrompt(
-              `Review our current mission "${mission.title}" and suggest authentic GCMD Science Keywords and sensor instrumentation for CoMET CEDIT upload.`
+              `Review our current mission "${mission.title}" and suggest authentic GCMD Science Keywords and sensor instrumentation as advisory candidates for human review.`
             )
           }
           className="px-2 py-1 rounded bg-[#101e33] hover:bg-[#182e4e] text-[10px] font-mono text-cyan-300 border border-cyan-500/25 shrink-0 transition-colors"
@@ -203,27 +197,26 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
         <button
           onClick={() =>
             handleQuickPrompt(
-              `Examine the geographic coordinates [${mission.spatialExtent.west}, ${mission.spatialExtent.south}, ${mission.spatialExtent.east}, ${mission.spatialExtent.north}] for ${mission.spatialExtent.placeName}. Are they valid for ISO 19115-2?`
+              `Examine the geographic coordinates [${mission.spatialExtent.west}, ${mission.spatialExtent.south}, ${mission.spatialExtent.east}, ${mission.spatialExtent.north}] for ${mission.spatialExtent.placeName}. Explain whether they appear internally plausible for an ISO 19115-2 projection. Do not claim external validation.`
             )
           }
           className="px-2 py-1 rounded bg-[#101e33] hover:bg-[#182e4e] text-[10px] font-mono text-cyan-300 border border-cyan-500/25 shrink-0 transition-colors"
         >
-          ✦ Verify Spatial Bounds
+          ✦ Review Spatial Bounds
         </button>
 
         <button
           onClick={() =>
             handleQuickPrompt(
-              `Explain the NOAA CEDIT OpenAPI (https://data.noaa.gov/cedit/openApiDoc.html) requirements for pushing an uncrewed systems (UxS) mission draft.`
+              `Explain the documented NOAA CEDIT OpenAPI requirements relevant to a UxS mission handoff. Distinguish documented contracts from anything that still requires test-environment confirmation.`
             )
           }
           className="px-2 py-1 rounded bg-[#101e33] hover:bg-[#182e4e] text-[10px] font-mono text-cyan-300 border border-cyan-500/25 shrink-0 transition-colors"
         >
-          ✦ CEDIT API Requirements
+          ✦ CEDIT Contract Context
         </button>
       </div>
 
-      {/* Chat Input */}
       <form
         onSubmit={handleSend}
         className="p-3 bg-[#0a1220] border-t border-cyan-500/20 flex items-center gap-2"
@@ -233,7 +226,7 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask MANTA Lens about ISO 19115, GCMD keywords, CEDIT API..."
+          placeholder="Ask about evidence, mappings, ISO, GCMD, or CEDIT..."
           disabled={isLoading}
           className="flex-1 bg-[#101b30] border border-cyan-500/30 rounded-lg px-3 py-2 text-xs text-cyan-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
         />
@@ -251,7 +244,6 @@ export const ChatbotCompanion: React.FC<ChatbotCompanionProps> = ({
   );
 };
 
-// Helper function to extract structured suggestions JSON from assistant text
 function parseSuggestedUpdates(text: string): any | null {
   try {
     const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
