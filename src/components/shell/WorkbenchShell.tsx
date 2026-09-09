@@ -48,6 +48,11 @@ interface WorkbenchShellProps {
   showToast: (msg: string) => void;
 }
 
+interface CorpusSelectionEventDetail {
+  selection: WorkspaceSelection;
+  openGraph?: boolean;
+}
+
 export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
   mission,
   setMission,
@@ -84,6 +89,27 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
   const [isGlobalLensOpen, setIsGlobalLensOpen] = useState(false);
   const [isMantasScriptOpen, setIsMantasScriptOpen] = useState(false);
   const [mantasScriptInitialMode, setMantasScriptInitialMode] = useState<MantasScriptMode>('SCRIPT');
+
+  // Corpus selections use the same WorkspaceSelection contract as every other workbench surface.
+  // The corpus remains a source-evidence overlay; selecting an imported record does not mutate UxsMission.
+  React.useEffect(() => {
+    const handleCorpusSelection = (event: Event) => {
+      const detail = (event as CustomEvent<CorpusSelectionEventDetail>).detail;
+      if (!detail?.selection) return;
+
+      setSelection(detail.selection);
+      showToast(`Corpus selection: ${detail.selection.entityName || detail.selection.graphNodeId || 'source-backed asset'}`);
+
+      if (detail.openGraph) {
+        setPrimaryTab('graph');
+        setActivePane('PRIMARY');
+        setFocusMode('PRIMARY_FOCUSED');
+      }
+    };
+
+    window.addEventListener('manta:corpus-selection', handleCorpusSelection as EventListener);
+    return () => window.removeEventListener('manta:corpus-selection', handleCorpusSelection as EventListener);
+  }, [showToast]);
 
   // Keyboard Shortcuts (Cmd+K, Cmd+/, Shift+1, Shift+2, Esc)
   React.useEffect(() => {
