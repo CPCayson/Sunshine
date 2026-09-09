@@ -1,43 +1,6 @@
-import React, { useState } from 'react';
-import {
-  X,
-  Database,
-  Activity,
-  Languages,
-  Layers,
-  GitFork,
-  ExternalLink,
-  ChevronRight,
-  ShieldCheck,
-  FileCode,
-  Sparkles,
-  Workflow,
-  Compass,
-  FileSpreadsheet,
-  CheckCircle2,
-  Clock,
-  Key,
-  ShieldAlert,
-  Fingerprint,
-  Cpu,
-  Anchor,
-  Box,
-  Binary,
-  Radio,
-  Share2,
-  FileText,
-  AlertTriangle
-} from 'lucide-react';
-import {
-  ActiveWorkspaceTab,
-  UxSMission,
-  WorkspaceSelection,
-  SignalFinding,
-  Claim,
-  CapabilityEvidenceLevel
-} from '../../types';
-import { CompactAccordion } from './CompactAccordion';
-import { getCapabilityMaturity } from '../../services/identityResolutionService';
+import React from 'react';
+import { ChevronRight, Database, GitBranch, History, Layers, X } from 'lucide-react';
+import { ActiveWorkspaceTab, UxSMission, WorkspaceSelection } from '../../types';
 import { KnowledgePassport } from './KnowledgePassport';
 
 interface PaneLensProps {
@@ -49,6 +12,21 @@ interface PaneLensProps {
   onNavigateTab?: (tab: ActiveWorkspaceTab) => void;
 }
 
+type LensTab = 'Passport' | 'Context' | 'Inspect';
+
+const labelForPane = (paneView: ActiveWorkspaceTab) => {
+  switch (paneView) {
+    case 'destination-compare':
+      return 'Destination Compare';
+    case 'charlie-intake':
+      return 'Charlie Intake';
+    case 'knowledge-tree':
+      return 'Knowledge Tree';
+    default:
+      return paneView.charAt(0).toUpperCase() + paneView.slice(1);
+  }
+};
+
 export const PaneLens: React.FC<PaneLensProps> = ({
   isOpen,
   onClose,
@@ -57,339 +35,158 @@ export const PaneLens: React.FC<PaneLensProps> = ({
   mission,
   onNavigateTab,
 }) => {
-  // Determine local contextual tabs based on active pane view
-  const getTabsForPane = () => {
-    switch (paneView) {
-      case 'lifecycle':
-        return ['Passport', 'Lifecycle', 'Cockpit', 'Guards', 'Ledger'];
-      case 'graph':
-        return ['Passport', 'Overview', 'Evidence', 'Signal', 'Rosetta', 'Paths'];
-      case 'projections':
-        return ['Passport', 'Item', 'Assets', 'Canonical', 'Validation'];
-      case 'charlie-intake':
-        return ['Passport', 'Source', 'Mapping', 'Signal', 'Evidence'];
-      case 'map':
-        return ['Passport', 'Trajectory', 'Deployments', 'Sensors'];
-      case 'evidence':
-        return ['Passport', 'Claims', 'Sources', 'Conflicts', 'Decisions'];
-      case 'signal':
-        return ['Passport', 'Findings', 'Rules', 'DocuComp', 'Remediation'];
-      default:
-        return ['Passport', 'Overview', 'Evidence', 'Signal'];
-    }
-  };
+  const [activeTab, setActiveTab] = React.useState<LensTab>('Passport');
 
-  const tabs = getTabsForPane();
-  const [activeTab, setActiveTab] = React.useState(tabs[0]);
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
-
-  // Keep active tab in sync if pane view changes
   React.useEffect(() => {
     setActiveTab('Passport');
-  }, [paneView, selection.canonicalRef, selection.entityName]);
+  }, [paneView, selection.canonicalRef, selection.entityName, selection.graphNodeId]);
 
   if (!isOpen) return null;
 
-  const handleAction = (actionName: string) => {
-    setActionNotice(`Executing ${actionName}...`);
-    setTimeout(() => setActionNotice(null), 3500);
-    if (actionName === 'EVIDENCE' && onNavigateTab) {
-      onNavigateTab('evidence');
-    } else if (actionName === 'MISSIONS' && onNavigateTab) {
-      onNavigateTab('lifecycle');
-    } else if (actionName === 'TRACE' && onNavigateTab) {
-      onNavigateTab('graph');
-    }
-  };
+  const entityName = selection.entityName || mission.platform.name || mission.title;
+  const reference =
+    selection.canonicalRef ||
+    selection.graphNodeId ||
+    mission.platform.physicalAssetId ||
+    mission.platform.modelId ||
+    mission.id;
+  const claims = mission.claims || [];
 
-  // Compute entity passport properties based on selection
-  const entityName = selection.entityName || mission.platform.name || 'REMUS 620 Autonomous Vehicle Model';
-  const isRemus = entityName.toLowerCase().includes('remus') || entityName.toLowerCase().includes('6401');
-  const isMinsas = entityName.toLowerCase().includes('minsas') || entityName.toLowerCase().includes('sas');
-  const isAsset = entityName.includes('6401') || selection.entityType === 'physicalAsset';
-
-  const knowledgeKey = isAsset
-    ? 'KK:physical-asset:remus-620:6401'
-    : isMinsas
-    ? 'KK:instrument-model:kraken:minsas-120'
-    : 'KK:platform-model:remus-620';
-
-  const providerName = isMinsas ? 'Kraken Robotics Inc.' : 'Huntington Ingalls Industries (HII) / Hydroid';
-  const entityType = isAsset ? 'Physical Asset' : isMinsas ? 'Instrument Model' : 'Platform Model';
-  const maturity = getCapabilityMaturity('plat-model-remus620', 'inst-model-minsas');
+  const navigate = (tab: ActiveWorkspaceTab) => onNavigateTab?.(tab);
 
   return (
     <aside
       id="pane-local-lens-slideover"
-      className="absolute top-0 right-0 bottom-0 w-80 sm:w-96 bg-[#060c18]/95 border-l border-cyan-500/30 backdrop-blur-md flex flex-col z-30 shadow-2xl font-sans animate-in slide-in-from-right duration-200"
+      className="absolute top-0 right-0 bottom-0 w-[360px] max-w-[92vw] bg-[#060b14] border-l border-slate-800 flex flex-col z-30 font-sans"
     >
-      {/* Pane Lens Header */}
-      <div className="p-3 bg-[#081224] border-b border-cyan-500/20 flex items-center justify-between font-mono">
-        <div className="flex items-center gap-2 truncate">
-          <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-          <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-            {activeTab === 'Passport' ? 'KNOWLEDGE PASSPORT' : `${paneView.toUpperCase()} LENS`}
-          </span>
-          <span className="text-[10px] text-slate-500 truncate max-w-[120px]">
-            {entityName}
-          </span>
+      <div className="px-5 py-4 border-b border-slate-800 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">{labelForPane(paneView)} lens</div>
+          <div className="mt-1 truncate text-sm font-semibold text-slate-100" title={entityName}>{entityName}</div>
         </div>
-
         <button
           onClick={onClose}
-          className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors shrink-0"
-          title="Close Local Lens"
+          className="p-1.5 rounded text-slate-500 hover:text-slate-200 hover:bg-slate-900 transition-colors"
+          title="Close local lens"
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Pane Lens Sub-Tabs */}
-      <div className="flex items-center gap-1 px-3 pt-2 border-b border-slate-800/80 bg-[#050a14] overflow-x-auto no-scrollbar font-mono text-xs shrink-0">
-        {tabs.map((t) => (
+      <div className="px-5 border-b border-slate-800 flex items-center gap-5 text-xs">
+        {(['Passport', 'Context', 'Inspect'] as LensTab[]).map((tab) => (
           <button
-            key={t}
-            onClick={() => setActiveTab(t)}
-            className={`px-2.5 py-1 rounded-t text-[11px] font-semibold transition-colors ${
-              activeTab === t
-                ? 'bg-[#081224] text-cyan-300 border-t border-x border-cyan-500/30'
-                : 'text-slate-400 hover:text-slate-200'
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`py-3 border-b transition-colors ${
+              activeTab === tab
+                ? 'border-cyan-300 text-cyan-200'
+                : 'border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >
-            {t}
+            {tab}
           </button>
         ))}
       </div>
 
-      {/* Action Notification Banner */}
-      {actionNotice && (
-        <div className="mx-3 mt-2 px-3 py-1.5 bg-cyan-950/80 border border-cyan-500/40 rounded text-[11px] text-cyan-300 font-mono flex items-center justify-between">
-          <span>{actionNotice}</span>
-          <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-        </div>
-      )}
-
-      {/* Pane Lens Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-xs text-slate-300">
-        {/* Selected Entity Card */}
-        <div className="p-3 rounded-lg bg-[#081224] border border-cyan-500/20 space-y-1">
-          <div className="text-[10px] uppercase font-bold text-cyan-400 flex items-center justify-between">
-            <span>Active Selection Context</span>
-            <span className="text-[9px] px-1 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-              {selection.entityType || entityType.toUpperCase()}
-            </span>
-          </div>
-          <div className="text-sm font-sans font-bold text-slate-100 truncate">
-            {entityName}
-          </div>
-          <div className="text-[11px] text-slate-400 truncate">
-            Canonical Ref: <code className="text-cyan-300">{selection.canonicalRef || knowledgeKey}</code>
-          </div>
-        </div>
-
-        {/* 0. KNOWLEDGE PASSPORT VIEW */}
+      <div className="flex-1 overflow-y-auto p-5">
         {activeTab === 'Passport' && (
           <KnowledgePassport
             selection={selection}
             mission={mission}
             onNavigateTab={onNavigateTab}
-            onSelectEntity={(key) => {
-              // Optionally update local context if needed
-            }}
           />
         )}
 
-        {/* 1. LIFECYCLE TABS */}
-        {paneView === 'lifecycle' && activeTab === 'Lifecycle' && (
-          <div className="space-y-2">
-            <CompactAccordion title="Operational State Machine" primaryValue="Stage 4: ACCEPT" badge={{ label: 'ACTIVE', variant: 'cyan' }} defaultExpanded>
-              <div className="space-y-1 text-slate-400">
-                <div>Vehicle: <strong className="text-slate-200">{mission.platform.name}</strong></div>
-                <div>Hull Number: <strong className="text-slate-200">{mission.platform.physicalAssetId || '#6401'}</strong></div>
-                <div>Deployment: <strong className="text-slate-200">Dive 01 (Leg 1)</strong></div>
-                <div>Physical Files: <strong className="text-slate-200">17 Ingested</strong></div>
+        {activeTab === 'Context' && (
+          <div className="space-y-8">
+            <section>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Selected object</div>
+              <h2 className="mt-2 text-lg font-semibold text-slate-100">{entityName}</h2>
+              <div className="mt-1 text-xs text-slate-500">{selection.entityType || 'Workspace selection'}</div>
+              <div className="mt-4 rounded-lg border border-slate-800 bg-[#050a12] px-3 py-2 font-mono text-[11px] text-cyan-300 break-all">
+                {reference}
               </div>
-            </CompactAccordion>
+            </section>
 
-            <CompactAccordion title="Knowledge Key Mappings" count={3} badge={{ label: 'MINTED', variant: 'purple' }}>
-              <div className="space-y-1 text-[11px]">
-                <div className="text-cyan-300">KK:platform-model:remus-620</div>
-                <div className="text-cyan-300">KK:physical-asset:remus-620:6401</div>
-                <div className="text-purple-300">KK:instrument-instance:kraken:minsas:204</div>
-                <div className="text-emerald-300">KK:deployment:en2501:dive-01</div>
+            <section className="border-t border-slate-800 pt-5 space-y-4 text-sm">
+              <div>
+                <div className="text-xs text-slate-600">Mission</div>
+                <div className="mt-1 text-slate-200">{mission.title}</div>
               </div>
-            </CompactAccordion>
+              <div>
+                <div className="text-xs text-slate-600">Platform</div>
+                <div className="mt-1 text-slate-300">{mission.platform.name}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-600">Time</div>
+                <div className="mt-1 text-slate-300">{mission.dateStart} → {mission.dateEnd}</div>
+              </div>
+              <div>
+                <div className="text-xs text-slate-600">Place</div>
+                <div className="mt-1 text-slate-300">{mission.spatialExtent.placeName || 'Spatial extent available'}</div>
+              </div>
+            </section>
           </div>
         )}
 
-        {paneView === 'lifecycle' && activeTab === 'Cockpit' && (
-          <div className="space-y-2">
-            <div className="text-[11px] text-slate-400">Five Operational Readiness Domains:</div>
-            <div className="space-y-1 text-xs">
-              <div className="p-2 rounded bg-[#09152b] border border-slate-800 flex items-center justify-between">
-                <span>Vehicle Domain</span>
-                <span className="text-emerald-400 font-bold">● READY</span>
-              </div>
-              <div className="p-2 rounded bg-[#09152b] border border-slate-800 flex items-center justify-between">
-                <span>Payload Domain</span>
-                <span className="text-emerald-400 font-bold">● READY</span>
-              </div>
-              <div className="p-2 rounded bg-[#09152b] border border-slate-800 flex items-center justify-between">
-                <span>Mission Domain</span>
-                <span className="text-emerald-400 font-bold">● READY</span>
-              </div>
-              <div className="p-2 rounded bg-[#09152b] border border-slate-800 flex items-center justify-between">
-                <span>Data Domain</span>
-                <span className="text-amber-400 font-bold">▲ PARTIAL</span>
-              </div>
-              <div className="p-2 rounded bg-[#09152b] border border-slate-800 flex items-center justify-between">
-                <span>Metadata Domain</span>
-                <span className="text-emerald-400 font-bold">● READY</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === 'Inspect' && (
+          <div className="space-y-8">
+            <section>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Evidence at a glance</div>
+              <div className="mt-3 text-3xl font-semibold text-slate-100">{claims.length}</div>
+              <div className="mt-1 text-xs text-slate-500">mission claims available for inspection</div>
+            </section>
 
-        {paneView === 'lifecycle' && activeTab === 'Guards' && (
-          <div className="space-y-2">
-            <div className="text-[11px] text-slate-400">Current Stage Transition Guards:</div>
-            <div className="space-y-1 text-xs">
-              <div className="p-2 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Platform identity resolved & accepted</span>
-              </div>
-              <div className="p-2 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Payload linked to physical hull asset</span>
-              </div>
-              <div className="p-2 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Blocking claims decided by Human Steward</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {paneView === 'lifecycle' && activeTab === 'Ledger' && (
-          <div className="space-y-2">
-            <div className="text-[11px] text-slate-400">Merkle Proof Block:</div>
-            <div className="p-2.5 bg-[#050e1c] rounded border border-slate-800 space-y-1 text-[11px]">
-              <div>Block ID: <strong className="text-purple-300">L-000184</strong></div>
-              <div>Canonical Hash: <code className="text-cyan-300">c586116ea982</code></div>
-              <div>Rules Hash: <code className="text-emerald-300">71f93ce08912</code></div>
-              <div>Actor: <span className="text-slate-300">Human Data Steward</span></div>
-            </div>
-          </div>
-        )}
-
-        {/* 2. STANDARD OVERVIEW TAB */}
-        {activeTab === 'Overview' && (
-          <div className="space-y-2">
-            <CompactAccordion title="Platform Profile" primaryValue={mission.platform.name} badge={{ label: 'SUPPORTED', variant: 'emerald' }} defaultExpanded>
-              <div className="space-y-1 text-slate-400">
-                <div>Model ID: <strong className="text-slate-200">{mission.platform.modelId || 'REMUS-620'}</strong></div>
-                <div>Category: <strong className="text-slate-200">{mission.platform.uxsCategory}</strong></div>
-                <div>Callsign: <strong className="text-slate-200">{mission.platform.callSign}</strong></div>
-              </div>
-            </CompactAccordion>
-
-            <CompactAccordion title="Spatial Bounds" primaryValue={mission.spatialExtent.placeName} badge={{ label: 'COMPLETE', variant: 'cyan' }}>
-              <div className="space-y-1 text-slate-400">
-                <div>North: <span className="text-slate-200">{mission.spatialExtent.north}°</span></div>
-                <div>South: <span className="text-slate-200">{mission.spatialExtent.south}°</span></div>
-                <div>West: <span className="text-slate-200">{mission.spatialExtent.west}°</span></div>
-                <div>East: <span className="text-slate-200">{mission.spatialExtent.east}°</span></div>
-              </div>
-            </CompactAccordion>
-
-            <CompactAccordion title="Installed Sensors" count={mission.instruments.length} badge={{ label: 'ACTIVE', variant: 'purple' }}>
-              <div className="space-y-1">
-                {mission.instruments.map((inst, i) => (
-                  <div key={i} className="text-slate-200 py-0.5 border-b border-slate-800 last:border-0">
-                    • {inst}
+            {claims.length > 0 && (
+              <section className="border-t border-slate-800 pt-5 space-y-4">
+                {claims.slice(0, 3).map((claim) => (
+                  <div key={claim.id} className="space-y-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-[11px] text-slate-300">{claim.predicate}</span>
+                      <span className="text-[10px] uppercase tracking-wider text-slate-600">{claim.state}</span>
+                    </div>
+                    <div className="text-xs text-slate-500 line-clamp-2">
+                      {claim.subject} → {String(claim.objectValue)}
+                    </div>
                   </div>
                 ))}
-              </div>
-            </CompactAccordion>
-          </div>
-        )}
+                {claims.length > 3 && (
+                  <div className="text-xs text-slate-600">+ {claims.length - 3} more claims</div>
+                )}
+              </section>
+            )}
 
-        {/* 3. EVIDENCE TAB */}
-        {(activeTab === 'Evidence' || activeTab === 'Claims') && (
-          <div className="space-y-2">
-            <div className="text-[11px] text-slate-400">
-              Corroborating source observations for active selection:
-            </div>
-            {(mission.claims || []).slice(0, 4).map((claim) => (
-              <div key={claim.id} className="p-2 bg-[#09152b] rounded border border-slate-800 space-y-1">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-cyan-400 font-semibold">{claim.predicate}</span>
-                  <span className="px-1 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-                    {claim.sources?.[0]?.id || 'direct'}
-                  </span>
-                </div>
-                <div className="text-slate-200 font-sans">{claim.subject} → {String(claim.objectValue)}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* 4. SIGNAL TAB */}
-        {(activeTab === 'Signal' || activeTab === 'Findings') && (
-          <div className="space-y-2">
-            <div className="text-[11px] text-slate-400">
-              Active rule verification for this node:
-            </div>
-            <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded text-emerald-300">
-              <div className="font-bold flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>DocuComp Slot Conformance</span>
-              </div>
-              <div className="text-[11px] text-slate-300 mt-1">
-                All candidate XML fragments match provisional target ISO slot xpath rules.
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 5. ROSETTA TAB */}
-        {activeTab === 'Rosetta' && (
-          <div className="space-y-2">
-            <div className="text-[11px] text-slate-400">
-              Cross-standard field projections:
-            </div>
-            <div className="p-2 bg-[#050e1c] rounded border border-slate-800 space-y-1 font-mono text-[11px]">
-              <div className="text-slate-400">Canonical: <code>platform.modelId</code></div>
-              <div className="text-cyan-300">ISO: <code>gmi:MI_Platform/gmi:description</code></div>
-              <div className="text-emerald-300">STAC: <code>properties['platform:model']</code></div>
-              <div className="text-amber-300">DCAT: <code>dcat:theme / keyword</code></div>
-            </div>
-          </div>
-        )}
-
-        {/* 6. PATHS TAB */}
-        {activeTab === 'Paths' && (
-          <div className="space-y-2">
-            <div className="text-[11px] text-slate-400">
-              Topological relationship traversals:
-            </div>
-            <div className="p-2 bg-[#050e1c] rounded border border-slate-800 space-y-1.5 text-[11px]">
-              <div>REMUS 620 <span className="text-cyan-400">→ CAN_CARRY →</span> Kraken MINSAS</div>
-              <div>Hull #6401 <span className="text-purple-400">→ CONFIGURED_WITH →</span> MINSAS SN-204</div>
-              <div>Dive 01 <span className="text-emerald-400">→ CARRIED →</span> MINSAS SN-204</div>
-              <div>MINSAS SN-204 <span className="text-cyan-400">→ PRODUCED →</span> Backscatter GeoTIFF</div>
-            </div>
-          </div>
-        )}
-
-        {/* 7. PROJECTIONS ITEM TAB */}
-        {activeTab === 'Item' && (
-          <div className="space-y-2">
-            <div className="text-[11px] text-slate-400">STAC Item ID:</div>
-            <div className="p-2 bg-[#050e1c] rounded border border-slate-800 text-cyan-300 font-mono text-[11px]">
-              EN2501-DIVE-01-REMUS620
-            </div>
-            <div className="text-slate-400 text-[11px]">Geometry: Bounding Polygon (4 coordinates)</div>
+            <section className="border-t border-slate-800 pt-5 space-y-1">
+              <button
+                onClick={() => navigate('evidence')}
+                className="w-full py-3 flex items-center justify-between text-left text-sm text-slate-300 hover:text-cyan-200"
+              >
+                <span className="flex items-center gap-2"><Database className="h-4 w-4 text-slate-500" />Evidence</span>
+                <ChevronRight className="h-4 w-4 text-slate-600" />
+              </button>
+              <button
+                onClick={() => navigate('graph')}
+                className="w-full py-3 flex items-center justify-between text-left text-sm text-slate-300 hover:text-cyan-200"
+              >
+                <span className="flex items-center gap-2"><GitBranch className="h-4 w-4 text-slate-500" />Relationships</span>
+                <ChevronRight className="h-4 w-4 text-slate-600" />
+              </button>
+              <button
+                onClick={() => navigate('lifecycle')}
+                className="w-full py-3 flex items-center justify-between text-left text-sm text-slate-300 hover:text-cyan-200"
+              >
+                <span className="flex items-center gap-2"><History className="h-4 w-4 text-slate-500" />History</span>
+                <ChevronRight className="h-4 w-4 text-slate-600" />
+              </button>
+              <button
+                onClick={() => navigate(paneView)}
+                className="w-full py-3 flex items-center justify-between text-left text-sm text-slate-300 hover:text-cyan-200"
+              >
+                <span className="flex items-center gap-2"><Layers className="h-4 w-4 text-slate-500" />Open full {labelForPane(paneView)}</span>
+                <ChevronRight className="h-4 w-4 text-slate-600" />
+              </button>
+            </section>
           </div>
         )}
       </div>
