@@ -1,6 +1,6 @@
 {
-  "name": "MANTA Lens - NOAA UxS & CoMET Companion",
-  "description": "Interactive map-based companion and real-time metadata validator for NOAA NCEI UxS missions and CoMET CEDIT catalog integration.",
+  "name": "MANTA Constellation - UxS Visual Companion",
+  "description": "Visual exploration companion for MANTAS mission evidence, meaning, projections, and scoped assurance. Sunshine is not a system of record and does not replace Zen, CoMET, or OISS authority.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
