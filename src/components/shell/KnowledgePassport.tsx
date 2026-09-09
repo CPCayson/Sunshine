@@ -22,37 +22,30 @@ const findVerifiedCorpusRecord = (
   selection: WorkspaceSelection,
   mission: UxSMission
 ): VerifiedUxSAssetRecord | null => {
-  const terms = [
+  const directTerms = [
     selection.entityName,
     selection.canonicalRef,
     selection.graphNodeId,
     mission.platform.physicalAssetId,
-    mission.platform.name,
-    mission.platform.modelId,
   ]
     .filter(Boolean)
     .map((value) => normalize(String(value)));
 
-  if (!terms.length) return null;
-
-  const exactIdentifier = VERIFIED_NOAA_UXS_CORPUS.find((record) => {
-    const candidates = [record.id, record.serialOrIdentifier, record.cdNumber, record.sourceRef]
-      .filter(Boolean)
-      .map((value) => normalize(String(value)));
-    return candidates.some((candidate) => candidate && terms.some((term) => term.includes(candidate)));
-  });
-
-  if (exactIdentifier) return exactIdentifier;
+  if (!directTerms.length) return null;
 
   return (
     VERIFIED_NOAA_UXS_CORPUS.find((record) => {
-      const model = normalize(record.model);
-      return model && terms.some((term) => term.includes(model));
+      const candidates = [record.id, record.serialOrIdentifier, record.cdNumber, record.sourceRef]
+        .filter(Boolean)
+        .map((value) => normalize(String(value)));
+      return candidates.some((candidate) => candidate && directTerms.some((term) => term.includes(candidate)));
     }) || null
   );
 };
 
-const stateLabel = (state: ReturnType<typeof getSourceBackedRelationshipAssessment>[number]['state']) => {
+const stateLabel = (
+  state: ReturnType<typeof getSourceBackedRelationshipAssessment>[number]['state']
+): 'supported' | 'mentioned' | 'unresolved' => {
   switch (state) {
     case 'SUPPORTED_BY_SOURCE_ROW':
       return 'supported';
@@ -70,7 +63,7 @@ export const KnowledgePassport: React.FC<KnowledgePassportProps> = ({
 }) => {
   const record = useMemo(
     () => findVerifiedCorpusRecord(selection, mission),
-    [selection.entityName, selection.canonicalRef, selection.graphNodeId, mission.platform.physicalAssetId, mission.platform.name, mission.platform.modelId]
+    [selection.entityName, selection.canonicalRef, selection.graphNodeId, mission.platform.physicalAssetId]
   );
 
   const relationships = useMemo(
@@ -160,7 +153,7 @@ export const KnowledgePassport: React.FC<KnowledgePassportProps> = ({
       <div className="border-t border-slate-800">
         <CompactAccordion
           title="Identity"
-          primaryValue={record ? record.identityState.replaceAll('_', ' ') : 'mission context'}
+          primaryValue={record ? record.identityState.replace(/_/g, ' ') : 'mission context'}
         >
           {record ? (
             <div className="space-y-2 text-xs text-slate-400">
