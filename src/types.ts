@@ -59,13 +59,32 @@ export type ClaimState =
 
 // Distinct, non-collapsible platform-sensor-science predicates
 export type RelationshipPredicate =
-  | 'CAN_CARRY'         // PlatformModel -> InstrumentModel
-  | 'CONFIGURED_WITH'   // PhysicalAsset -> InstrumentInstance
-  | 'CARRIED'           // Deployment -> InstrumentInstance
-  | 'PRODUCED'          // InstrumentInstance -> Dataset
-  | 'SUPPORTED_BY'      // ScienceDomain -> ObservedProperty
-  | 'OBSERVABLE_BY'     // ObservedProperty -> SensorCapability
-  | 'IMPLEMENTED_BY';   // SensorCapability -> InstrumentModel
+  | 'CAN_CARRY'                 // PlatformModel -> InstrumentModel
+  | 'CONFIGURED_WITH'           // PhysicalAsset -> InstrumentInstance
+  | 'CARRIED'                   // Deployment -> InstrumentInstance
+  | 'PRODUCED'                  // InstrumentInstance -> Dataset
+  | 'OBSERVES'                  // Dataset -> ObservedProperty
+  | 'SUPPORTED_BY'              // ScienceDomain -> ObservedProperty
+  | 'OBSERVABLE_BY'             // ObservedProperty -> SensorCapability
+  | 'IMPLEMENTED_BY'            // SensorCapability -> InstrumentModel
+  | 'MANUFACTURES'              // Organization -> PlatformModel / InstrumentModel
+  | 'PROVIDES'                  // Organization -> PlatformModel / Service
+  | 'OPERATES'                  // Organization -> PhysicalAsset
+  | 'OWNS'                      // Organization -> PhysicalAsset
+  | 'MAINTAINS'                 // Organization -> PhysicalAsset
+  | 'ASSERTS_CAPABILITY'        // Organization -> Capability assertion
+  | 'PUBLISHED_SPECIFICATION'   // Organization -> SourceArtifact
+  | 'REQUIRES_OR_BENEFITS_FROM' // ScienceDomain -> ObservedProperty
+  | 'CAN_BE_CARRIED_BY'         // InstrumentModel -> PlatformModel
+  | 'FUNCTIONAL_ALTERNATIVE'    // InstrumentModel -> InstrumentModel
+  | 'CAPABILITY_OVERLAP'        // SensorCapability -> SensorCapability
+  | 'CAN_SATISFY'               // InstrumentModel -> SensorCapability
+  | 'RELATED_CAPABILITY'        // SensorCapability -> SensorCapability
+  | 'INSTANCE_OF_MODEL'         // PhysicalAsset -> PlatformModel
+  | 'EMPLOYED_ASSET'            // Deployment -> PhysicalAsset
+  | 'INCLUDES_LEG'              // Mission -> Leg
+  | 'EXECUTED_DEPLOYMENT'       // Leg -> Deployment
+  | 'HAS_ASSET';                // Dataset -> Asset
 
 export interface ClaimDecision {
   decisionType: 'ACCEPT' | 'REJECT' | 'MODIFY' | 'DEFER';
@@ -578,6 +597,10 @@ export type KnowledgeNodeKind =
   | 'deployment'
   | 'platformModel'
   | 'physicalAsset'
+  | 'platformClass'
+  | 'organization'
+  | 'provider'
+  | 'manufacturer'
   | 'instrumentModel'
   | 'instrumentInstance'
   | 'dataset'
@@ -649,6 +672,7 @@ export interface KnowledgeNode {
   label: string;
   subtitle?: string;
   canonicalRef?: string;
+  knowledgeKey?: string;
   state?: 'OBSERVED' | 'INFERRED' | 'SUGGESTED' | 'CONFLICT' | 'ACCEPTED' | 'REJECTED' | 'UNRESOLVED';
   facets?: AssuranceFacets;
   evidenceRefs?: string[];
@@ -716,6 +740,9 @@ export interface ThreeTierPlacementVerdict {
 
 export type GraphViewAxis =
   | 'MISSION'
+  | 'PROVIDER'
+  | 'PLATFORM'
+  | 'INSTRUMENT'
   | 'DOMAIN'
   | 'CAPABILITY'
   | 'EVIDENCE'
@@ -731,6 +758,11 @@ export interface NodePosition {
   cluster?: string;
   layer?: number;
   visible?: boolean;
+}
+
+export interface KnowledgeGraph {
+  nodes: KnowledgeNode[];
+  edges: KnowledgeEdge[];
 }
 
 export interface GraphRotationState {
@@ -860,11 +892,113 @@ export interface CandidateIdentityEdge {
   sourceEntityId: string;
   targetEntityId: string;
   sourceType: KnowledgeNodeKind;
-  matchBasis: 'SERIAL_NUMBER' | 'UUID' | 'DOI' | 'ACCESSION' | 'NAME_SIMILARITY' | 'VOCAB_MATCH';
+  matchBasis: 'SERIAL_NUMBER' | 'UUID' | 'DOI' | 'ACCESSION' | 'NAME_SIMILARITY' | 'VOCAB_MATCH' | 'EXACT' | 'PARENT_PLATFORM';
   confidence: number;
   state: IdentityResolutionState;
   explanation: string;
   sourceArtifactRef: string;
+  rawLabel?: string;
+  targetCanonicalKey?: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  decisionRationale?: string;
+  competingCandidates?: string[];
+}
+
+export interface SourceArtifact {
+  id: string;
+  name: string;
+  artifactType: 'XLSX_WORKBOOK' | 'CSV_TABLE' | 'JSON_FEED' | 'PDF_SPECIFICATION' | 'XML_CATALOG' | 'OPERATIONS_LOG';
+  fileName: string;
+  sheetName?: string;
+  uri?: string;
+  artifactHash?: string;
+  importedAt: string;
+  sourceTimestamp?: string;
+  provenanceType: ProvenanceType;
+  recordCount?: number;
+  description?: string;
+  organization?: string;
+}
+
+export interface IngestedSourceRow {
+  id: string;
+  sourceArtifactId: string;
+  sourceFile: string;
+  sheet?: string;
+  row: number;
+  column?: string;
+  rawField: string;
+  rawValue: string;
+  sourceTimestamp?: string;
+  importTimestamp: string;
+  artifactHash?: string;
+  candidateEntityKind?: KnowledgeNodeKind;
+  candidateKey?: string;
+}
+
+export type CapabilityEvidenceLevel =
+  | 'POTENTIAL'     // Provider / manufacturer specification only
+  | 'CONFIGURED'    // Physical inventory / chassis configuration exists
+  | 'DEPLOYED'      // Mission or deployment underway log corroborates
+  | 'DATA_PROVEN';  // Actual dataset / data asset lineage verified
+
+export interface CapabilityMaturityRecord {
+  id: string;
+  platformModelId: string;
+  platformModelName: string;
+  instrumentModelId: string;
+  instrumentModelName: string;
+  physicalAssetId?: string;
+  instrumentInstanceId?: string;
+  potential: { supported: boolean; authority: string; evidenceRef: string; excerpt?: string };
+  configured: { supported: boolean; authority: string; evidenceRef: string; excerpt?: string };
+  deployed: { supported: boolean; authority: string; evidenceRef: string; excerpt?: string };
+  dataProven: { supported: boolean; authority: string; evidenceRef: string; excerpt?: string };
+  overallMaturity: CapabilityEvidenceLevel;
+  explanation: string;
+}
+
+export interface CorpusCapabilityQueryResult {
+  title: string;
+  subtitle: string;
+  entityId: string;
+  entityKind: KnowledgeNodeKind;
+  explanationPath: string[];
+  evidenceRefs: string[];
+  maturity: CapabilityEvidenceLevel;
+  provenanceType: ProvenanceType;
+}
+
+export interface CorpusCapabilityQuery {
+  id: string;
+  question: string;
+  category: 'POTENTIAL' | 'DEPLOYED' | 'DATA_PROVEN' | 'IDENTITY' | 'INSTRUMENT' | 'UNRESOLVED';
+  rationale: string;
+  results: CorpusCapabilityQueryResult[];
+}
+
+export type KnowledgeTreeRoot =
+  | 'PLATFORM'
+  | 'PROVIDER'
+  | 'INSTRUMENT'
+  | 'MISSION'
+  | 'SCIENCE'
+  | 'CAPABILITY';
+
+export interface KnowledgeTreeNode {
+  id: string;
+  label: string;
+  kind: KnowledgeNodeKind | 'group' | 'category';
+  subtitle?: string;
+  knowledgeKey?: string;
+  provenanceType: ProvenanceType;
+  state?: string;
+  children?: KnowledgeTreeNode[];
+  evidenceRefChain?: string[];
+  canonicalRef?: string;
+  metrics?: string;
+  isLeaf?: boolean;
 }
 
 // ====================================================

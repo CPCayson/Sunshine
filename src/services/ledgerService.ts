@@ -281,3 +281,15 @@ export class UxSLifecycleLedgerService {
 }
 
 export const ledgerService = UxSLifecycleLedgerService.getInstance();
+
+export function appendLedgerEvent(payload: {
+  type: string;
+  message: string;
+  sourceRef?: string;
+  claimId?: string;
+  diff?: Record<string, any>;
+}): { id: string; timestamp: string; hash: string } {
+  const timestamp = new Date().toISOString();
+  const id = `ledger-evt-${Date.now()}`;
+  return { id, timestamp, hash: `h-${Date.now().toString(16)}` };
+}

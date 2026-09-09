@@ -172,6 +172,7 @@ export function buildStableKnowledgeGraph(mission: UxSMission): BuiltGraph {
       label: 'REMUS 620 Autonomous Vehicle Model',
       subtitle: 'Engineering archetype: 600m/1500m modular AUV',
       canonicalRef: 'REMUS-620',
+      knowledgeKey: 'KK:platform-model:remus-620',
       state: 'ACCEPTED',
       facets: {
         evidence: 'SUPPORTED',
@@ -193,6 +194,7 @@ export function buildStableKnowledgeGraph(mission: UxSMission): BuiltGraph {
       label: 'REMUS 620 Hull #6401',
       subtitle: 'NOAA UxS Fleet Asset Barcode #NOAA-UXS-6401',
       canonicalRef: '#6401',
+      knowledgeKey: 'KK:physical-asset:remus-620:6401',
       state: 'ACCEPTED',
       facets: {
         evidence: 'SUPPORTED',
@@ -238,6 +240,7 @@ export function buildStableKnowledgeGraph(mission: UxSMission): BuiltGraph {
       label: 'Kraken MINSAS-120 SAS',
       subtitle: 'Synthetic Aperture Sonar interferometric sensor system',
       canonicalRef: 'Kraken-MINSAS-120',
+      knowledgeKey: 'KK:instrument-model:kraken:minsas-120',
       state: 'ACCEPTED',
       facets: {
         evidence: 'SUPPORTED',
@@ -259,6 +262,7 @@ export function buildStableKnowledgeGraph(mission: UxSMission): BuiltGraph {
       label: 'Kraken MINSAS SN #204',
       subtitle: 'Payload bay mounted sonar on Hull #6401',
       canonicalRef: 'MINSAS-SN204',
+      knowledgeKey: 'KK:instrument-instance:kraken:minsas:204',
       state: 'ACCEPTED',
       facets: {
         evidence: 'SUPPORTED',

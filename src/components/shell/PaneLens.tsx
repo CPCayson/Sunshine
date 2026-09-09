@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   X,
   Database,
@@ -16,16 +16,28 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   Clock,
-  Key
+  Key,
+  ShieldAlert,
+  Fingerprint,
+  Cpu,
+  Anchor,
+  Box,
+  Binary,
+  Radio,
+  Share2,
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
 import {
   ActiveWorkspaceTab,
   UxSMission,
   WorkspaceSelection,
   SignalFinding,
-  Claim
+  Claim,
+  CapabilityEvidenceLevel
 } from '../../types';
 import { CompactAccordion } from './CompactAccordion';
+import { getCapabilityMaturity } from '../../services/identityResolutionService';
 
 interface PaneLensProps {
   isOpen: boolean;
@@ -50,31 +62,60 @@ export const PaneLens: React.FC<PaneLensProps> = ({
   const getTabsForPane = () => {
     switch (paneView) {
       case 'lifecycle':
-        return ['Lifecycle', 'Cockpit', 'Guards', 'Ledger'];
+        return ['Passport', 'Lifecycle', 'Cockpit', 'Guards', 'Ledger'];
       case 'graph':
-        return ['Overview', 'Evidence', 'Signal', 'Rosetta', 'Paths'];
+        return ['Passport', 'Overview', 'Evidence', 'Signal', 'Rosetta', 'Paths'];
       case 'projections':
-        return ['Item', 'Assets', 'Canonical', 'Validation'];
+        return ['Passport', 'Item', 'Assets', 'Canonical', 'Validation'];
       case 'charlie-intake':
-        return ['Source', 'Mapping', 'Signal', 'Evidence'];
+        return ['Passport', 'Source', 'Mapping', 'Signal', 'Evidence'];
       case 'map':
-        return ['Trajectory', 'Deployments', 'Sensors'];
+        return ['Passport', 'Trajectory', 'Deployments', 'Sensors'];
       case 'evidence':
-        return ['Claims', 'Sources', 'Conflicts', 'Decisions'];
+        return ['Passport', 'Claims', 'Sources', 'Conflicts', 'Decisions'];
       case 'signal':
-        return ['Findings', 'Rules', 'DocuComp', 'Remediation'];
+        return ['Passport', 'Findings', 'Rules', 'DocuComp', 'Remediation'];
       default:
-        return ['Overview', 'Evidence', 'Signal'];
+        return ['Passport', 'Overview', 'Evidence', 'Signal'];
     }
   };
 
   const tabs = getTabsForPane();
   const [activeTab, setActiveTab] = React.useState(tabs[0]);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   // Keep active tab in sync if pane view changes
   React.useEffect(() => {
-    setActiveTab(tabs[0]);
-  }, [paneView]);
+    setActiveTab('Passport');
+  }, [paneView, selection.canonicalRef, selection.entityName]);
+
+  const handleAction = (actionName: string) => {
+    setActionNotice(`Executing ${actionName}...`);
+    setTimeout(() => setActionNotice(null), 3500);
+    if (actionName === 'EVIDENCE' && onNavigateTab) {
+      onNavigateTab('evidence');
+    } else if (actionName === 'MISSIONS' && onNavigateTab) {
+      onNavigateTab('lifecycle');
+    } else if (actionName === 'TRACE' && onNavigateTab) {
+      onNavigateTab('graph');
+    }
+  };
+
+  // Compute entity passport properties based on selection
+  const entityName = selection.entityName || mission.platform.name || 'REMUS 620 Autonomous Vehicle Model';
+  const isRemus = entityName.toLowerCase().includes('remus') || entityName.toLowerCase().includes('6401');
+  const isMinsas = entityName.toLowerCase().includes('minsas') || entityName.toLowerCase().includes('sas');
+  const isAsset = entityName.includes('6401') || selection.entityType === 'physicalAsset';
+
+  const knowledgeKey = isAsset
+    ? 'KK:physical-asset:remus-620:6401'
+    : isMinsas
+    ? 'KK:instrument-model:kraken:minsas-120'
+    : 'KK:platform-model:remus-620';
+
+  const providerName = isMinsas ? 'Kraken Robotics Inc.' : 'Huntington Ingalls Industries (HII) / Hydroid';
+  const entityType = isAsset ? 'Physical Asset' : isMinsas ? 'Instrument Model' : 'Platform Model';
+  const maturity = getCapabilityMaturity('plat-model-remus620', 'inst-model-minsas');
 
   return (
     <aside
@@ -86,10 +127,10 @@ export const PaneLens: React.FC<PaneLensProps> = ({
         <div className="flex items-center gap-2 truncate">
           <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
           <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-            {paneView.toUpperCase()} LENS
+            {activeTab === 'Passport' ? 'KNOWLEDGE PASSPORT' : `${paneView.toUpperCase()} LENS`}
           </span>
           <span className="text-[10px] text-slate-500 truncate max-w-[120px]">
-            {selection.entityName || 'Selection Context'}
+            {entityName}
           </span>
         </div>
 
@@ -119,6 +160,14 @@ export const PaneLens: React.FC<PaneLensProps> = ({
         ))}
       </div>
 
+      {/* Action Notification Banner */}
+      {actionNotice && (
+        <div className="mx-3 mt-2 px-3 py-1.5 bg-cyan-950/80 border border-cyan-500/40 rounded text-[11px] text-cyan-300 font-mono flex items-center justify-between">
+          <span>{actionNotice}</span>
+          <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+        </div>
+      )}
+
       {/* Pane Lens Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-xs text-slate-300">
         {/* Selected Entity Card */}
@@ -126,16 +175,182 @@ export const PaneLens: React.FC<PaneLensProps> = ({
           <div className="text-[10px] uppercase font-bold text-cyan-400 flex items-center justify-between">
             <span>Active Selection Context</span>
             <span className="text-[9px] px-1 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-              {selection.entityType || 'CANONICAL'}
+              {selection.entityType || entityType.toUpperCase()}
             </span>
           </div>
           <div className="text-sm font-sans font-bold text-slate-100 truncate">
-            {selection.entityName || mission.title}
+            {entityName}
           </div>
           <div className="text-[11px] text-slate-400 truncate">
-            Canonical Ref: <code className="text-cyan-300">{selection.canonicalRef || mission.id}</code>
+            Canonical Ref: <code className="text-cyan-300">{selection.canonicalRef || knowledgeKey}</code>
           </div>
         </div>
+
+        {/* 0. KNOWLEDGE PASSPORT VIEW */}
+        {activeTab === 'Passport' && (
+          <div className="space-y-3 text-xs">
+            {/* Passport Identity Header */}
+            <div className="p-3 bg-[#071328] rounded-lg border border-cyan-500/30 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-400 font-bold">TYPE:</span>
+                <span className="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 font-bold border border-cyan-800">
+                  {entityType}
+                </span>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-400 uppercase">Knowledge Key:</div>
+                <div className="font-mono text-cyan-300 text-[11px] break-all bg-black/40 p-1 rounded border border-cyan-900/50 mt-0.5">
+                  {knowledgeKey}
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">PROVIDER:</span>
+                <span className="text-slate-200 font-semibold">{providerName}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-400">DATA PROVENANCE:</span>
+                <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold">
+                  IMPORTED_ARTIFACT
+                </span>
+              </div>
+            </div>
+
+            {/* Passport Action Buttons */}
+            <div className="grid grid-cols-3 gap-1 text-[10px] font-bold">
+              <button
+                onClick={() => handleAction('TRACE')}
+                className="p-1.5 rounded bg-[#0b1b36] hover:bg-cyan-900/40 text-cyan-300 border border-cyan-800/60 text-center transition-colors"
+              >
+                TRACE
+              </button>
+              <button
+                onClick={() => handleAction('EVIDENCE')}
+                className="p-1.5 rounded bg-[#0b1b36] hover:bg-cyan-900/40 text-emerald-300 border border-emerald-800/60 text-center transition-colors"
+              >
+                EVIDENCE
+              </button>
+              <button
+                onClick={() => handleAction('PROOF')}
+                className="p-1.5 rounded bg-[#0b1b36] hover:bg-cyan-900/40 text-purple-300 border border-purple-800/60 text-center transition-colors"
+              >
+                PROOF
+              </button>
+              <button
+                onClick={() => handleAction('MISSIONS')}
+                className="p-1.5 rounded bg-[#0b1b36] hover:bg-cyan-900/40 text-amber-300 border border-amber-800/60 text-center transition-colors col-span-1"
+              >
+                MISSIONS
+              </button>
+              <button
+                onClick={() => handleAction('SCIENCE CANDIDATES')}
+                className="p-1.5 rounded bg-[#0b1b36] hover:bg-cyan-900/40 text-slate-200 border border-slate-700 text-center transition-colors col-span-2"
+              >
+                SCIENCE CANDIDATES
+              </button>
+            </div>
+
+            {/* Structured Passport Sections */}
+            <CompactAccordion title="Aliases & Candidate Labels" count={3} badge={{ label: 'MAPPED', variant: 'cyan' }} defaultExpanded>
+              <div className="space-y-1 text-slate-300 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span>• HII REMUS-620 (Fleet Registry):</span>
+                  <span className="text-emerald-400 font-bold">EXACT</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>• REMUS620 (ISO Draft):</span>
+                  <span className="text-cyan-300">STRONG</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>• "REMUS" (CoMET CEDIT):</span>
+                  <span className="text-amber-400 font-bold">WEAK (HELD)</span>
+                </div>
+              </div>
+            </CompactAccordion>
+
+            <CompactAccordion title="Known Physical Assets" count={1} badge={{ label: 'VERIFIED', variant: 'emerald' }} defaultExpanded>
+              <div className="p-2 bg-[#050e1c] rounded border border-slate-800 text-[11px] space-y-1">
+                <div className="font-bold text-slate-100">REMUS 620 Hull #6401</div>
+                <div>Serial: <code className="text-cyan-300">6401</code> | Barcode: <code className="text-slate-300">NOAA-UXS-6401</code></div>
+                <div>Owner: <span className="text-slate-300">NOAA OMAO</span></div>
+                <div>Operational Status: <span className="text-emerald-400 font-bold">ACTIVE DEPLOYED</span></div>
+              </div>
+            </CompactAccordion>
+
+            <CompactAccordion title="Engineering Capabilities (CAN_CARRY)" count={3} badge={{ label: 'SPEC', variant: 'purple' }} defaultExpanded>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="p-1.5 rounded bg-[#09152b] border border-slate-800">
+                  <div className="text-cyan-300 font-semibold">Kraken MINSAS-120 SAS</div>
+                  <div className="text-[10px] text-slate-400">Mid-Section 0.18m³ bay rated | 337 kHz SAS</div>
+                </div>
+                <div className="p-1.5 rounded bg-[#09152b] border border-slate-800">
+                  <div className="text-cyan-300 font-semibold">Voyis Insight Pro Optical/Laser</div>
+                  <div className="text-[10px] text-slate-400">Forward optical compartment rated</div>
+                </div>
+                <div className="p-1.5 rounded bg-[#09152b] border border-slate-800">
+                  <div className="text-cyan-300 font-semibold">Sea-Bird SBE49 FastCAT CTD</div>
+                  <div className="text-[10px] text-slate-400">Standard internal mast integration</div>
+                </div>
+              </div>
+            </CompactAccordion>
+
+            <CompactAccordion title="Known Physical Configurations" count={2} badge={{ label: 'CHASSIS', variant: 'amber' }}>
+              <div className="space-y-1 text-[11px] text-slate-300">
+                <div>• Hull #6401 <strong className="text-amber-300">CONFIGURED_WITH</strong> Kraken MINSAS SN #204</div>
+                <div>• Hull #6401 <strong className="text-amber-300">CONFIGURED_WITH</strong> Voyis Insight Pro SN #088</div>
+              </div>
+            </CompactAccordion>
+
+            <CompactAccordion title="Actual Deployments" count={3} badge={{ label: 'CARRIED', variant: 'emerald' }}>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="p-1.5 rounded bg-[#09152b] border border-slate-800">
+                  <div className="font-bold text-slate-200">EN2501 Dive 01 (Penguin Bank SAS)</div>
+                  <div className="text-[10px] text-slate-400">Duration: 14.2h | Depth: 50m - 220m | CARRIED: MINSAS SN-204</div>
+                </div>
+                <div className="p-1.5 rounded bg-[#09152b] border border-slate-800">
+                  <div className="font-bold text-slate-200">EN2501 Dive 02 (Kaiwi Trough Deep)</div>
+                  <div className="text-[10px] text-slate-400">Duration: 18.5h | Depth: 400m - 1,250m | CARRIED: MINSAS SN-204</div>
+                </div>
+              </div>
+            </CompactAccordion>
+
+            <CompactAccordion title="Produced Datasets" count={2} badge={{ label: 'PRODUCED', variant: 'cyan' }}>
+              <div className="space-y-1 text-[11px] text-slate-300">
+                <div>• Acoustic Backscatter GeoTIFF Mosaic (EN2501_D01_Backscatter_50cm.tif)</div>
+                <div>• Bathymetry BAG 1m Gridded Surface (EN2501_D01_Bathy_1m.bag)</div>
+              </div>
+            </CompactAccordion>
+
+            <CompactAccordion title="Capability Evidence Maturity" badge={{ label: maturity?.overallMaturity || 'DATA_PROVEN', variant: 'emerald' }} defaultExpanded>
+              <div className="space-y-1 text-xs">
+                <div className="p-1.5 rounded bg-[#050e1c] flex items-center justify-between">
+                  <span>POTENTIAL (Provider Spec):</span>
+                  <span className="text-emerald-400 font-bold">● VERIFIED</span>
+                </div>
+                <div className="p-1.5 rounded bg-[#050e1c] flex items-center justify-between">
+                  <span>CONFIGURED (Deck Inventory):</span>
+                  <span className="text-emerald-400 font-bold">● VERIFIED</span>
+                </div>
+                <div className="p-1.5 rounded bg-[#050e1c] flex items-center justify-between">
+                  <span>DEPLOYED (Underway Dive Log):</span>
+                  <span className="text-emerald-400 font-bold">● VERIFIED</span>
+                </div>
+                <div className="p-1.5 rounded bg-[#050e1c] flex items-center justify-between">
+                  <span>DATA_PROVEN (Archived Dataset):</span>
+                  <span className="text-emerald-400 font-bold">● VERIFIED</span>
+                </div>
+              </div>
+            </CompactAccordion>
+
+            <CompactAccordion title="Authority & Freshness" badge={{ label: 'CURRENT', variant: 'emerald' }}>
+              <div className="space-y-1 text-[11px] text-slate-400">
+                <div>Active Registration: <strong className="text-slate-200">NOAA UxSO Fleet Registry CY2025</strong></div>
+                <div>Historical Snapshot: <span className="text-slate-300">2020 Navy/USM Custody (Preserved)</span></div>
+                <div>Authority: <span className="text-cyan-300 font-mono">NOAA OMAO / Ocean Exploration</span></div>
+                <div>Ledger Anchor: <span className="text-purple-300 font-mono">Block L-000184 (c586116ea982)</span></div>
+              </div>
+            </CompactAccordion>
+          </div>
+        )}
 
         {/* 1. LIFECYCLE TABS */}
         {paneView === 'lifecycle' && activeTab === 'Lifecycle' && (
@@ -151,9 +366,10 @@ export const PaneLens: React.FC<PaneLensProps> = ({
 
             <CompactAccordion title="Knowledge Key Mappings" count={3} badge={{ label: 'MINTED', variant: 'purple' }}>
               <div className="space-y-1 text-[11px]">
-                <div className="text-cyan-300">KK:asset:remus620:6401</div>
-                <div className="text-purple-300">KK:instrument:kraken:120</div>
-                <div className="text-emerald-300">KK:deployment:en2501:dive01</div>
+                <div className="text-cyan-300">KK:platform-model:remus-620</div>
+                <div className="text-cyan-300">KK:physical-asset:remus-620:6401</div>
+                <div className="text-purple-300">KK:instrument-instance:kraken:minsas:204</div>
+                <div className="text-emerald-300">KK:deployment:en2501:dive-01</div>
               </div>
             </CompactAccordion>
           </div>
@@ -311,9 +527,10 @@ export const PaneLens: React.FC<PaneLensProps> = ({
               Topological relationship traversals:
             </div>
             <div className="p-2 bg-[#050e1c] rounded border border-slate-800 space-y-1.5 text-[11px]">
-              <div>REMUS 620 <span className="text-cyan-400">→ carriedBy →</span> Okeanos Explorer</div>
-              <div>REMUS 620 <span className="text-purple-400">→ operatesSensor →</span> Kraken MINSAS</div>
-              <div>Kraken MINSAS <span className="text-emerald-400">→ measures →</span> Acoustic Backscatter</div>
+              <div>REMUS 620 <span className="text-cyan-400">→ CAN_CARRY →</span> Kraken MINSAS</div>
+              <div>Hull #6401 <span className="text-purple-400">→ CONFIGURED_WITH →</span> MINSAS SN-204</div>
+              <div>Dive 01 <span className="text-emerald-400">→ CARRIED →</span> MINSAS SN-204</div>
+              <div>MINSAS SN-204 <span className="text-cyan-400">→ PRODUCED →</span> Backscatter GeoTIFF</div>
             </div>
           </div>
         )}

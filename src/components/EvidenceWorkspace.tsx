@@ -24,6 +24,10 @@ import {
   UxSMission,
   RelationshipPredicate
 } from '../types';
+import { SourceFirstIngestionPanel } from './corpus/SourceFirstIngestionPanel';
+import { CandidateIdentityQueuePanel } from './corpus/CandidateIdentityQueuePanel';
+import { CapabilityMaturityMatrixPanel } from './corpus/CapabilityMaturityMatrixPanel';
+import { CorpusAuditHarnessPanel } from './corpus/CorpusAuditHarnessPanel';
 
 interface EvidenceWorkspaceProps {
   mission: UxSMission;
@@ -38,7 +42,9 @@ export const EvidenceWorkspace: React.FC<EvidenceWorkspaceProps> = ({
   onRejectClaim,
   onSelectDocucompRef,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'claims' | 'predicates' | 'docucomp' | 'sources'>('claims');
+  const [activeSubTab, setActiveSubTab] = useState<
+    'claims' | 'predicates' | 'docucomp' | 'sources' | 'source-first' | 'candidates' | 'maturity' | 'audit-harness'
+  >('claims');
   const [filterState, setFilterState] = useState<string>('ALL');
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(
     mission.claims && mission.claims.length > 0 ? mission.claims[4] : null // Default to the conflict claim
@@ -103,12 +109,12 @@ export const EvidenceWorkspace: React.FC<EvidenceWorkspaceProps> = ({
           </span>
         </div>
 
-        {/* View Switcher: Claims List | Platform-Sensor Predicates | DocuComp Components | Raw Sources */}
-        <div className="flex items-center bg-[#050912] border border-cyan-500/20 rounded-lg p-0.5 text-xs font-mono">
+        {/* View Switcher: Claims List | Platform-Sensor Predicates | DocuComp Components | Raw Sources | Source-First Ingest | Candidate Queue | Capability Maturity | Audit Harness */}
+        <div className="flex flex-wrap items-center bg-[#050912] border border-cyan-500/20 rounded-lg p-0.5 text-xs font-mono gap-0.5">
           <button
             id="subtab-claims-btn"
             onClick={() => setActiveSubTab('claims')}
-            className={`px-3 py-1 rounded-md transition-colors ${
+            className={`px-2.5 py-1 rounded-md transition-colors ${
               activeSubTab === 'claims'
                 ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200'
@@ -119,7 +125,7 @@ export const EvidenceWorkspace: React.FC<EvidenceWorkspaceProps> = ({
           <button
             id="subtab-predicates-btn"
             onClick={() => setActiveSubTab('predicates')}
-            className={`px-3 py-1 rounded-md transition-colors ${
+            className={`px-2.5 py-1 rounded-md transition-colors ${
               activeSubTab === 'predicates'
                 ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200'
@@ -128,20 +134,64 @@ export const EvidenceWorkspace: React.FC<EvidenceWorkspaceProps> = ({
             Platform & Sensor Graph
           </button>
           <button
+            id="subtab-source-first-btn"
+            onClick={() => setActiveSubTab('source-first')}
+            className={`px-2.5 py-1 rounded-md transition-colors ${
+              activeSubTab === 'source-first'
+                ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Source-First Ingestion
+          </button>
+          <button
+            id="subtab-candidates-btn"
+            onClick={() => setActiveSubTab('candidates')}
+            className={`px-2.5 py-1 rounded-md transition-colors ${
+              activeSubTab === 'candidates'
+                ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Identity Candidates
+          </button>
+          <button
+            id="subtab-maturity-btn"
+            onClick={() => setActiveSubTab('maturity')}
+            className={`px-2.5 py-1 rounded-md transition-colors ${
+              activeSubTab === 'maturity'
+                ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Capability Maturity
+          </button>
+          <button
+            id="subtab-audit-harness-btn"
+            onClick={() => setActiveSubTab('audit-harness')}
+            className={`px-2.5 py-1 rounded-md transition-colors ${
+              activeSubTab === 'audit-harness'
+                ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Audit Harness (15 Tests)
+          </button>
+          <button
             id="subtab-docucomp-btn"
             onClick={() => setActiveSubTab('docucomp')}
-            className={`px-3 py-1 rounded-md transition-colors ${
+            className={`px-2 py-1 rounded-md transition-colors ${
               activeSubTab === 'docucomp'
                 ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            DocuComp XLinks ({docucompRefs.length})
+            DocuComp ({docucompRefs.length})
           </button>
           <button
             id="subtab-sources-btn"
             onClick={() => setActiveSubTab('sources')}
-            className={`px-3 py-1 rounded-md transition-colors ${
+            className={`px-2 py-1 rounded-md transition-colors ${
               activeSubTab === 'sources'
                 ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40'
                 : 'text-slate-400 hover:text-slate-200'
@@ -611,6 +661,18 @@ export const EvidenceWorkspace: React.FC<EvidenceWorkspaceProps> = ({
             </div>
           </div>
         )}
+
+        {/* SUBTAB 5: SOURCE-FIRST INGESTION STAGING */}
+        {activeSubTab === 'source-first' && <SourceFirstIngestionPanel />}
+
+        {/* SUBTAB 6: CANDIDATE IDENTITY QUEUE */}
+        {activeSubTab === 'candidates' && <CandidateIdentityQueuePanel />}
+
+        {/* SUBTAB 7: CAPABILITY MATURITY MATRIX */}
+        {activeSubTab === 'maturity' && <CapabilityMaturityMatrixPanel />}
+
+        {/* SUBTAB 8: CORPUS AUDIT & INVARIANT HARNESS */}
+        {activeSubTab === 'audit-harness' && <CorpusAuditHarnessPanel mission={mission} />}
       </div>
     </div>
   );
