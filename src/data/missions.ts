@@ -80,7 +80,69 @@ export const EN2501_MISSION: UxSMission = {
     stacState: 'READY',
     oissState: 'NOT TESTED',
     mode: 'READ_ONLY',
-  }
+  },
+  lifecycleState: 'ACCEPT',
+  lifecycleTransitions: [
+    {
+      id: 'trans-001',
+      timestamp: '2025-06-21 08:30:12Z',
+      fromState: 'ACQUIRE',
+      toState: 'OBSERVE',
+      trigger: 'INGEST_MANIFEST_LOADED',
+      triggerSource: 'Intake',
+      actor: 'MANTAS Automated Ingestion Agent',
+      summary: 'Captured 17 raw data files and USBL vehicle telemetry from R/V expedition storage.',
+      knowledgeKey: 'KK:deployment:en2501:dive01',
+      canonicalHash: '3a19e8cf0b41',
+      rulesHash: 'e729a1b023f8',
+      guardsChecked: [
+        { name: 'Telemetry Logged', passed: true },
+        { name: 'Raw File Count > 0', passed: true }
+      ]
+    },
+    {
+      id: 'trans-002',
+      timestamp: '2025-06-22 14:15:00Z',
+      fromState: 'OBSERVE',
+      toState: 'RECONCILE',
+      trigger: 'CLAIMS_REASONING_RUN',
+      triggerSource: 'Claim',
+      actor: 'MANTAS Evidence Extractor',
+      summary: 'Extracted 16 candidate claims from Charlie Form, NCEI Inventory row, and cruise report.',
+      knowledgeKey: 'KK:platform-variance:remus-kraken',
+      canonicalHash: '8b7f21a0d33e',
+      rulesHash: 'b441a99cd103',
+      claimsDecided: ['claim-conflict-hull'],
+      guardsChecked: [
+        { name: 'Source Hashes Computed', passed: true },
+        { name: 'Identity Matrix Built', passed: true }
+      ]
+    },
+    {
+      id: 'trans-003',
+      timestamp: '2025-06-23 09:44:21Z',
+      fromState: 'RECONCILE',
+      toState: 'ACCEPT',
+      trigger: 'HUMAN_DECISION_SUBMITTED',
+      triggerSource: 'Decision',
+      actor: 'Human Data Steward (Active Session)',
+      summary: 'Accepted REMUS 620 (#6401) platform model and Kraken MINSAS-120 payload. Resolved hull label variance.',
+      knowledgeKey: 'KK:physical-asset:remus620:6401',
+      canonicalHash: 'c586116ea982',
+      rulesHash: '71f93ce08912',
+      ledgerBlockId: 'L-000184',
+      knowledgeKeysMinted: [
+        'KK:physical-asset:remus620:6401',
+        'KK:instrument-instance:kraken:minsas:120',
+        'KK:deployment:en2501:dive01'
+      ],
+      guardsChecked: [
+        { name: 'Platform Identity Resolved', passed: true },
+        { name: 'Payload Linked to Asset', passed: true },
+        { name: 'Blocking Conflict Decided', passed: true }
+      ]
+    }
+  ]
 };
 
 export const INITIAL_MISSIONS: UxSMission[] = [

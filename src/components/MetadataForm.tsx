@@ -4,6 +4,7 @@ import {
   SpatialExtent
 } from '../types';
 import { InteractiveOceanMap } from './InteractiveOceanMap';
+import { CompactAccordion } from './shell/CompactAccordion';
 import {
   Check,
   Sparkles,
@@ -19,7 +20,12 @@ import {
   KeyRound,
   Eye,
   ExternalLink,
-  Maximize2
+  Maximize2,
+  History,
+  ShieldCheck,
+  Hash,
+  User,
+  Clock
 } from 'lucide-react';
 
 interface MetadataFormProps {
@@ -251,42 +257,49 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
               />
             </div>
 
-            {/* Status & Resource Type Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-[#0b1322] border border-cyan-500/20 rounded-xl p-4">
-                <label className="text-xs font-mono font-semibold uppercase text-slate-300 block mb-1.5">
-                  Progress Status
-                </label>
-                <select
-                  id="mission-status-select"
-                  value={mission.status}
-                  onChange={(e) => handleUpdate('status', e.target.value as any)}
-                  className="w-full bg-[#101b30] border border-cyan-500/30 rounded-lg px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-400"
-                >
-                  <option value="completed">completed (Data Archived)</option>
-                  <option value="onGoing">onGoing (Active Expedition)</option>
-                  <option value="planned">planned (Scheduled Cruise)</option>
-                  <option value="underDevelopment">underDevelopment (Pre-deployment)</option>
-                </select>
-              </div>
+            {/* Status & Resource Type Accordion */}
+            <CompactAccordion
+              title="Operational Lifecycle Status & Hierarchy"
+              primaryValue={`${mission.status} · ${mission.resourceType}`}
+              badge={{ label: 'PROFILED', variant: 'cyan' }}
+              defaultExpanded={false}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="text-xs font-mono font-semibold uppercase text-slate-300 block mb-1.5">
+                    Progress Status
+                  </label>
+                  <select
+                    id="mission-status-select"
+                    value={mission.status}
+                    onChange={(e) => handleUpdate('status', e.target.value as any)}
+                    className="w-full bg-[#101b30] border border-cyan-500/30 rounded-lg px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-400"
+                  >
+                    <option value="completed">completed (Data Archived)</option>
+                    <option value="onGoing">onGoing (Active Expedition)</option>
+                    <option value="planned">planned (Scheduled Cruise)</option>
+                    <option value="underDevelopment">underDevelopment (Pre-deployment)</option>
+                  </select>
+                </div>
 
-              <div className="bg-[#0b1322] border border-cyan-500/20 rounded-xl p-4">
-                <label className="text-xs font-mono font-semibold uppercase text-slate-300 block mb-1.5">
-                  Resource Hierarchy Level
-                </label>
-                <select
-                  id="mission-resourcetype-select"
-                  value={mission.resourceType}
-                  onChange={(e) => handleUpdate('resourceType', e.target.value as any)}
-                  className="w-full bg-[#101b30] border border-cyan-500/30 rounded-lg px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-400"
-                >
-                  <option value="dataset">dataset (Oceanographic Data Set)</option>
-                  <option value="mission">mission (Full UxS Cruise)</option>
-                  <option value="series">series (Multi-leg Expedition Series)</option>
-                  <option value="collection">collection (NCEI CoMET Collection)</option>
-                </select>
+                <div>
+                  <label className="text-xs font-mono font-semibold uppercase text-slate-300 block mb-1.5">
+                    Resource Hierarchy Level
+                  </label>
+                  <select
+                    id="mission-resourcetype-select"
+                    value={mission.resourceType}
+                    onChange={(e) => handleUpdate('resourceType', e.target.value as any)}
+                    className="w-full bg-[#101b30] border border-cyan-500/30 rounded-lg px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-400"
+                  >
+                    <option value="dataset">dataset (Oceanographic Data Set)</option>
+                    <option value="mission">mission (Full UxS Cruise)</option>
+                    <option value="series">series (Multi-leg Expedition Series)</option>
+                    <option value="collection">collection (NCEI CoMET Collection)</option>
+                  </select>
+                </div>
               </div>
-            </div>
+            </CompactAccordion>
 
             {/* Quick Spatial Extent Verification Card in Overview */}
             <div className="bg-[#0b1322] border border-cyan-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
@@ -724,6 +737,114 @@ export const MetadataForm: React.FC<MetadataFormProps> = ({
             </div>
           </div>
         )}
+
+        {/* Provenance History Accordion */}
+        <CompactAccordion
+          title="Provenance History (Canonical State Machine Ledger)"
+          primaryValue={`${mission.lifecycleTransitions?.length || 0} transitions recorded`}
+          badge={{
+            label: mission.lifecycleState ? `STATE: ${mission.lifecycleState}` : 'LEDGER LOGGED',
+            variant: 'cyan'
+          }}
+          defaultExpanded={true}
+        >
+          <div className="space-y-3 pt-1">
+            <div className="text-[11px] text-slate-400 font-sans leading-relaxed">
+              Every lifecycle state change is recorded in the MANTAS canonical Merkle ledger with the trigger source,
+              responsible actor, KnowledgeKey, and cryptographic hashes for canonical state and rule validation.
+            </div>
+
+            {(!mission.lifecycleTransitions || mission.lifecycleTransitions.length === 0) ? (
+              <div className="p-3 rounded-lg bg-[#060e1d] border border-slate-800 text-slate-500 text-xs font-mono text-center">
+                No state machine transitions recorded yet for this mission.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {mission.lifecycleTransitions.map((trans, idx) => (
+                  <div
+                    key={trans.id || idx}
+                    className="p-3 rounded-xl bg-[#060e1d] border border-cyan-500/20 hover:border-cyan-500/40 transition-colors space-y-2"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-800/80 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-mono text-[10px] font-bold">
+                          {trans.fromState} → {trans.toState}
+                        </span>
+                        {trans.triggerSource && (
+                          <span className="px-1.5 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800 font-mono text-[9px]">
+                            {trans.triggerSource.toUpperCase()}
+                          </span>
+                        )}
+                        {trans.ledgerBlockId && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800 font-mono text-[9px]">
+                            {trans.ledgerBlockId}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 text-[10px] text-slate-400 font-mono">
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3 text-cyan-400" />
+                          <span className="text-slate-200">{trans.actor}</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-500" />
+                          <span>{trans.timestamp}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-300 font-sans">
+                      {trans.summary}
+                    </div>
+
+                    {/* Hashes and Knowledge Key */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[10px] font-mono">
+                      {trans.knowledgeKey && (
+                        <div className="p-1.5 rounded bg-[#0b162b] border border-cyan-500/20 truncate">
+                          <span className="text-slate-500">Key: </span>
+                          <span className="text-cyan-300" title={trans.knowledgeKey}>{trans.knowledgeKey}</span>
+                        </div>
+                      )}
+                      {trans.canonicalHash && (
+                        <div className="p-1.5 rounded bg-[#0b162b] border border-cyan-500/20 truncate">
+                          <span className="text-slate-500">Canonical: </span>
+                          <span className="text-amber-300">{trans.canonicalHash}</span>
+                        </div>
+                      )}
+                      {trans.rulesHash && (
+                        <div className="p-1.5 rounded bg-[#0b162b] border border-cyan-500/20 truncate">
+                          <span className="text-slate-500">Rules: </span>
+                          <span className="text-emerald-300">{trans.rulesHash}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Guards Checked */}
+                    {trans.guardsChecked && trans.guardsChecked.length > 0 && (
+                      <div className="pt-1 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-slate-500">Guards:</span>
+                        {trans.guardsChecked.map((g, gIdx) => (
+                          <span
+                            key={gIdx}
+                            className={`text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 ${
+                              g.passed
+                                ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                                : 'bg-rose-950/40 border-rose-500/30 text-rose-300'
+                            }`}
+                          >
+                            <ShieldCheck className="w-2.5 h-2.5" />
+                            <span>{g.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CompactAccordion>
 
         {/* Bottom Form Actions Bar */}
         <div className="pt-2 flex items-center justify-between border-t border-cyan-500/20">

@@ -34,7 +34,8 @@ export type SourceAuthority =
   | 'UxS Registry'
   | 'Cruise Report'
   | 'Ship Sensor Log'
-  | 'OISS Harvest';
+  | 'OISS Harvest'
+  | 'Charlie Form';
 
 export interface SourceObservation {
   id: string;
@@ -276,6 +277,8 @@ export interface UxSMission {
   claims?: Claim[];
   sourceObservations?: SourceObservation[];
   authorityStatuses?: ScopedAuthorityStatus;
+  lifecycleState?: UxSLifecycleState;
+  lifecycleTransitions?: LifecycleTransitionHistory[];
 }
 
 // ----------------------------------------------------
@@ -327,6 +330,13 @@ export interface SignalFinding {
   threeTierVerdict?: ThreeTierPlacementVerdict;
   technicalXmlResolves?: boolean;
   isSemanticallyAppropriate?: boolean;
+  sourceProfile?: string;
+  submissionId?: string;
+  sourceFieldId?: string;
+  canonicalCandidatePath?: string;
+  observedValue?: any;
+  explanation?: string;
+  evidenceRef?: string;
 }
 
 // ----------------------------------------------------
@@ -395,15 +405,160 @@ export interface ChatMessage {
 
 export type MantaLensMode = 'off' | 'collapsed_strip' | 'wrapped_surface' | 'expanded_workspace';
 
+export type PaneId = 'PRIMARY' | 'SECONDARY';
+
+export type PaneFocusMode =
+  | 'BALANCED'
+  | 'PRIMARY_FOCUSED'
+  | 'SECONDARY_FOCUSED'
+  | 'PRIMARY_MAXIMIZED'
+  | 'SECONDARY_MAXIMIZED';
+
+export type WorkspaceFamily = 'DISCOVER' | 'UNDERSTAND' | 'DELIVER';
+
+export interface WorkspaceSelection {
+  canonicalRef?: string;
+  graphNodeId?: string;
+  graphEdgeId?: string;
+  sourceObservationId?: string;
+  claimId?: string;
+  projectionRef?: string;
+  mapFeatureRef?: string;
+  fieldId?: string;
+  entityName?: string;
+  entityType?: string;
+}
+
 export type ActiveWorkspaceTab =
+  | 'lifecycle'
   | 'search'
+  | 'charlie-intake'
   | 'mission'
   | 'evidence'
   | 'graph'
+  | 'constellation'
   | 'signal'
   | 'rosetta'
   | 'projections'
-  | 'comet';
+  | 'comet'
+  | 'destination-compare'
+  | 'map';
+
+// ----------------------------------------------------
+// UXS DATA LIFECYCLE & READINESS COCKPIT TYPES
+// ----------------------------------------------------
+export type UxSLifecycleState =
+  | 'ACQUIRE'
+  | 'OBSERVE'
+  | 'RECONCILE'
+  | 'ACCEPT'
+  | 'ASSURE'
+  | 'PROJECT'
+  | 'HANDOFF_READY'
+  | 'SUBMITTED'
+  | 'DESTINATION_OBSERVED'
+  | 'ARCHIVED'
+  | 'DISCOVERABLE';
+
+export type LifecycleStageCategory =
+  | 'PHYSICAL_OPS'
+  | 'EVIDENCE_REASONING'
+  | 'METADATA_GOVERNANCE'
+  | 'DESTINATION_OBSERVED';
+
+export interface LifecycleGuard {
+  id: string;
+  label: string;
+  satisfied: boolean;
+  rationale?: string;
+}
+
+export interface LifecycleStageDefinition {
+  id: UxSLifecycleState;
+  name: string;
+  shortLabel: string;
+  category: LifecycleStageCategory;
+  description: string;
+  operationalActor: string;
+  typicalArtifacts: string[];
+  guards: LifecycleGuard[];
+}
+
+export type ReadinessDomainStatus = 'READY' | 'PARTIAL' | 'REVIEW' | 'NOT_EVALUATED' | 'BLOCKED';
+
+export interface ReadinessDomainItem {
+  label: string;
+  status: ReadinessDomainStatus;
+  detail?: string;
+}
+
+export interface ReadinessDomain {
+  status: ReadinessDomainStatus;
+  label: string;
+  details: string;
+  items: ReadinessDomainItem[];
+}
+
+export type DestinationReadinessStatus =
+  | 'PROJECTABLE'
+  | 'READY_FOR_SERVICE'
+  | 'HANDOFF_READY'
+  | 'NOT_TESTED'
+  | 'UNAVAILABLE'
+  | 'NOT_OBSERVED'
+  | 'OBSERVED_VERIFIED';
+
+export interface DestinationReadinessGate {
+  status: DestinationReadinessStatus;
+  label: string;
+  description: string;
+  authorityScope: string;
+  upstreamUrl?: string;
+}
+
+export interface ReadinessCockpitState {
+  missionId: string;
+  missionTitle: string;
+  activeStage: UxSLifecycleState;
+  lifecycleState: UxSLifecycleState;
+  domains: {
+    vehicle: ReadinessDomain;
+    payload: ReadinessDomain;
+    mission: ReadinessDomain;
+    data: ReadinessDomain;
+    metadata: ReadinessDomain;
+  };
+  destinations: {
+    iso: DestinationReadinessGate;
+    stac: DestinationReadinessGate;
+    comet: DestinationReadinessGate;
+    oiss: DestinationReadinessGate;
+    archive: DestinationReadinessGate;
+    discovery: DestinationReadinessGate;
+  };
+}
+
+export interface LifecycleTransitionHistory {
+  id: string;
+  timestamp: string;
+  fromState: UxSLifecycleState;
+  toState: UxSLifecycleState;
+  trigger: string;
+  triggerSource?: string; // e.g., 'Claim', 'Signal', 'Decision', 'Intake'
+  actor: string;
+  summary: string;
+  knowledgeKey?: string;
+  knowledgeKeysMinted?: string[];
+  canonicalHash?: string;
+  rulesHash?: string;
+  ledgerBlockId?: string;
+  claimsDecided?: string[];
+  signalsEvaluated?: string[];
+  projectionsGenerated?: string[];
+  guardsChecked: Array<{ name: string; passed: boolean; rationale?: string }>;
+}
+
+export type UxSLifecycleTransition = LifecycleTransitionHistory;
 
 export interface CeditProfile {
   id: string;
@@ -445,7 +600,8 @@ export type KnowledgeNodeKind =
   | 'stacCollection'
   | 'stacItem'
   | 'validationResult'
-  | 'driftFinding';
+  | 'driftFinding'
+  | 'destinationObservation';
 
 export type FacetState =
   | 'VERIFIED'
@@ -604,4 +760,329 @@ export interface SimilarityBreakdown {
   sharedFeatures: string[];
   differentFeatures: string[];
 }
+
+// ----------------------------------------------------
+// CHARLIE FORM / GOOGLE SHEET INTAKE CONTRACT (STAGE A)
+// ----------------------------------------------------
+export type CharlieFieldProvenanceOrigin =
+  | 'FORM_OBSERVED'
+  | 'PROFILE_DEFAULT'
+  | 'PROFILE_DERIVED'
+  | 'EXTERNAL_COMPONENT'
+  | 'PROJECTION_DERIVED';
+
+export type CharlieFieldState =
+  | 'OBSERVED'
+  | 'UNMAPPED'
+  | 'INVALID'
+  | 'CANDIDATE';
+
+export interface CharlieFormFieldObservation {
+  sourceFieldId: string;
+  sourceLabel?: string;
+  conceptualSection?: string;
+  rawValue: any;
+  canonicalCandidatePath?: string;
+  transformApplied?: string;
+  state: CharlieFieldState;
+  provenanceOrigin: CharlieFieldProvenanceOrigin;
+  evidenceRef: string;
+  confidence?: number;
+  docucompRef?: string;
+  notes?: string;
+}
+
+export interface CharlieFormSubmission {
+  sourceProfile: 'charlie-google-form-v3';
+  submissionId: string;
+  observedAt: string;
+  submitterEmail?: string;
+  fields: CharlieFormFieldObservation[];
+  originalPayload: Record<string, any>;
+  provenanceType:
+    | 'LIVE_OBSERVED'
+    | 'IMPORTED_ARTIFACT'
+    | 'LOCAL_DERIVED'
+    | 'SYNTHETIC_FIXTURE';
+}
+
+export type CharlieXmlDiffCategory =
+  | 'SAME_MEANING'
+  | 'REPRESENTATION_DIFFERENCE'
+  | 'PROFILE_DEFAULT_DIFFERENCE'
+  | 'MISSING_IN_MANTAS'
+  | 'MISSING_IN_CHARLIE'
+  | 'SEMANTIC_DIFFERENCE'
+  | 'UNRESOLVED';
+
+export interface CharlieXmlRegressionDiff {
+  elementPath: string;
+  charlieValue: string;
+  mantasValue: string;
+  classification: CharlieXmlDiffCategory;
+  explanation: string;
+  citedProfileRef?: string;
+}
+
+// ----------------------------------------------------
+// PROJECTION SYNCHRONIZATION BRIDGE (STAGE B)
+// ----------------------------------------------------
+export type ProjectionType =
+  | 'STAC_COLLECTION'
+  | 'STAC_ITEM'
+  | 'STAC_ASSET'
+  | 'ISO_19115'
+  | 'DCAT_DATASET'
+  | 'COMET_RECORD'
+  | 'OISS_MANIFEST';
+
+export interface CanonicalProjectionReference {
+  canonicalRef: string;
+  projectionRef: string;
+  projectionType: ProjectionType;
+  label: string;
+  metadata?: Record<string, any>;
+}
+
+// ----------------------------------------------------
+// NOAA UXS CORPUS & IDENTITY RESOLUTION (STAGE C)
+// ----------------------------------------------------
+export type IdentityResolutionState =
+  | 'EXACT'
+  | 'STRONG_CANDIDATE'
+  | 'WEAK_CANDIDATE'
+  | 'CONFLICT'
+  | 'REJECTED'
+  | 'ACCEPTED';
+
+export interface CandidateIdentityEdge {
+  id: string;
+  sourceEntityId: string;
+  targetEntityId: string;
+  sourceType: KnowledgeNodeKind;
+  matchBasis: 'SERIAL_NUMBER' | 'UUID' | 'DOI' | 'ACCESSION' | 'NAME_SIMILARITY' | 'VOCAB_MATCH';
+  confidence: number;
+  state: IdentityResolutionState;
+  explanation: string;
+  sourceArtifactRef: string;
+}
+
+// ====================================================
+// NCEI OPERATIONAL CONTRACTS (PHASE 2)
+// ====================================================
+
+export type ComparisonState =
+  | 'MATCH'
+  | 'MISMATCH'
+  | 'MISSING'
+  | 'EXTRA'
+  | 'NOT_TESTED'
+  | 'UNVERIFIABLE'
+  | 'STALE';
+
+export type ComparisonScope =
+  | 'MISSION'
+  | 'PLATFORM'
+  | 'PAYLOAD'
+  | 'TRACK'
+  | 'TEMPORAL'
+  | 'SPATIAL'
+  | 'FILES'
+  | 'VERSION'
+  | 'METADATA'
+  | 'PROJECTION'
+  | 'DESTINATION'
+  | 'OISS_DEPLOYMENT';
+
+export type DifferenceClass =
+  | 'IDENTITY'
+  | 'TITLE'
+  | 'KEYWORDS'
+  | 'PLATFORM'
+  | 'INSTRUMENT'
+  | 'TEMPORAL'
+  | 'SPATIAL'
+  | 'DISTRIBUTION'
+  | 'ACCESS'
+  | 'VERSION'
+  | 'OTHER';
+
+export type FreshnessState =
+  | 'CURRENT'
+  | 'STALE'
+  | 'UNKNOWN'
+  | 'SUPERSEDED';
+
+export type DestinationAuthority =
+  | 'OneStop'
+  | 'OSIM'
+  | 'CMR'
+  | 'CoMET'
+  | 'OISS'
+  | 'R2R'
+  | 'MANTAS'
+  | 'NCEI_ARCHIVE';
+
+export interface DestinationObservation {
+  id: string;
+  authority: DestinationAuthority;
+  sourceSystem: string;
+  observedAt: string;
+  validFrom?: string;
+  validTo?: string;
+  recordIdentifier: string;
+  canonicalRef?: string;
+  projectionRef?: string;
+  evidenceRefs: string[];
+  responseHash?: string;
+  freshness: FreshnessState;
+  provenanceType: ProvenanceType;
+  state: ComparisonState;
+  data: Record<string, any>;
+  observedSummary?: {
+    title?: string;
+    platform?: string;
+    instruments?: string[];
+    spatialBbox?: [number, number, number, number];
+    temporalRange?: { start: string; end: string };
+    distributionLinks?: string[];
+    accessConstraints?: string;
+    version?: string;
+  };
+}
+
+export interface SemanticDifference {
+  id: string;
+  field: string;
+  diffClass: DifferenceClass;
+  expectedValue: any;
+  observedValue: any;
+  explanation: string;
+  canonicalRef?: string;
+  projectionRef?: string;
+  rosettaMappingRef?: string;
+  claimRef?: string;
+  evidenceRef?: string;
+}
+
+export interface DestinationCompareResult {
+  destination: DestinationAuthority;
+  sourceSystem: string;
+  recordIdentifier: string;
+  state: ComparisonState;
+  freshness: FreshnessState;
+  observedAt: string;
+  responseHash?: string;
+  differences: SemanticDifference[];
+  testedFieldsCount: number;
+  matchedFieldsCount: number;
+  provenanceType: ProvenanceType;
+}
+
+export interface UniversalExpectedObserved<T = any> {
+  id: string;
+  scope: ComparisonScope;
+  targetKey: string;
+  label: string;
+  expected: T;
+  observed?: T;
+  state: ComparisonState;
+  authority?: string;
+  observedAt?: string;
+  freshness?: FreshnessState;
+  rationale?: string;
+  sourceRef?: string;
+  evidenceRefs?: string[];
+  canonicalRef?: string;
+  rosettaRef?: string;
+}
+
+export interface ScopedReceipt {
+  id: string;
+  authority: DestinationAuthority;
+  authorityScope: string;
+  assertion: string;
+  observedAt: string;
+  validFrom?: string;
+  validTo?: string;
+  freshness: FreshnessState;
+  evidenceRefs: string[];
+  scopeRef: string;
+  responseHash?: string;
+  doesNotProve: string[];
+  serviceEndpoint?: string;
+  provenanceType: ProvenanceType;
+}
+
+export interface ExpectedFile {
+  logicalFileKey: string;
+  filename: string;
+  relativePath?: string;
+  mediaType?: string;
+  sizeBytes?: number;
+  algorithm?: 'MD5' | 'SHA-256';
+  expectedChecksum?: string;
+  version?: string;
+  sourceRef: string;
+  canonicalRef: string;
+  packageRef: string;
+  mandatory: boolean;
+}
+
+export interface ObservedFile {
+  logicalFileKey: string;
+  filename: string;
+  relativePath?: string;
+  physicalIdentity: string; // e.g. s3://noaa-ocean-data/raw/en2501/minsas/dive01.raw
+  fileVersionIdentity: string; // e.g. ver-20250620.0830-r2r
+  sizeBytes: number;
+  algorithm: 'MD5' | 'SHA-256';
+  checksum: string;
+  version: string;
+  sourceRef: string;
+  canonicalRef: string;
+  packageRef: string;
+  observedAt: string;
+  observedBy: string;
+}
+
+export interface FileComparisonItem {
+  logicalFileKey: string;
+  filename: string;
+  expected?: ExpectedFile;
+  observed?: ObservedFile;
+  state: ComparisonState; // MATCH, MISMATCH, MISSING, EXTRA, UNVERIFIABLE
+  notes?: string;
+}
+
+export interface OissHandoffRule {
+  id: string;
+  name: string;
+  authority: 'OISS_HANDOFF_PROFILE' | 'NCEI_SUBMISSION_AGREEMENT' | 'PPMT_CONTEXT' | 'PROVISIONAL_INTERNAL';
+  ruleGrounding: 'AUTHORITATIVE_DOCUMENTED' | 'PROVISIONAL' | 'UNRESOLVED' | 'NOT_TESTED';
+  description: string;
+  status: 'PASS' | 'FAIL' | 'NOT_TESTED' | 'PROVISIONAL';
+  rationale: string;
+  evidenceRefs: string[];
+}
+
+export interface OissHandoffReadiness {
+  packageId: string;
+  evaluationTimestamp: string;
+  overallState: 'OISS_HANDOFF_READY' | 'OISS_HANDOFF_BLOCKED' | 'NOT_TESTED';
+  externalExecutionAllowed: boolean; // false until OISS runtime execution
+  rules: OissHandoffRule[];
+  blockingReasons: string[];
+  doesNotProve: string[];
+}
+
+export interface TruthBoundaryAudit {
+  category: 'LOCAL_DERIVED' | 'LIVE_OBSERVED' | 'IMPORTED_ARTIFACT' | 'SYNTHETIC_FIXTURE' | 'AUTH_REQUIRED' | 'NOT_TESTED' | 'UNPROVEN';
+  capability: string;
+  statusText: string;
+  isAuthoritativeProven: boolean;
+  notes: string;
+}
+
+
 

@@ -1,39 +1,21 @@
 import React, { useState, useMemo } from 'react';
 import {
   UxSMission,
-  ActiveWorkspaceTab,
   ChatMessage,
-  ValidationIssue,
   FederatedSearchResult,
   Claim,
-  ObservedComponentReference,
   SignalFinding
 } from './types';
 import { INITIAL_MISSIONS } from './data/missions';
 import { generateIso19115Xml, validateUxSMission } from './utils/xmlGenerator';
-import { TopNav } from './components/TopNav';
-import { AutomationChips } from './components/AutomationChips';
-import { MetadataForm } from './components/MetadataForm';
-import { MantasSearch } from './components/MantasSearch';
-import { EvidenceWorkspace } from './components/EvidenceWorkspace';
-import { MissionGraph } from './components/MissionGraph';
-import { SignalAssurance } from './components/SignalAssurance';
-import { RosettaViewer } from './components/RosettaViewer';
-import { ProjectionsWorkspace } from './components/ProjectionsWorkspace';
-import { CometAdapterWorkspace } from './components/CometAdapterWorkspace';
-import { RightLensPanel } from './components/RightLensPanel';
+import { WorkbenchShell } from './components/shell/WorkbenchShell';
 import { TemplateSelectorModal } from './components/TemplateSelectorModal';
 import { CometOperationMode } from './services/cometAdapter';
-import { CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [mission, setMission] = useState<UxSMission>(INITIAL_MISSIONS[0]);
-  const [activeTab, setActiveTab] = useState<ActiveWorkspaceTab>('search');
   const [cometMode, setCometMode] = useState<CometOperationMode>('LIVE_OBSERVED_MODE');
-  const [isLensPanelOpen, setIsLensPanelOpen] = useState(true);
-  const [activeLensTab, setActiveLensTab] = useState<'evidence' | 'signal' | 'rosetta' | 'projections' | 'comet' | 'ask'>('ask');
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
-  const [isAutomating, setIsAutomating] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
   // Initial welcome message from MANTA Lens AI
@@ -41,16 +23,14 @@ export default function App() {
     {
       id: 'welcome-1',
       sender: 'assistant',
-      text: `👋 Welcome to **MANTA Lens** — your operational intelligence workbench for **NOAA NCEI Uncrewed Systems (UxS)** mission metadata.
+      text: `👋 Welcome to **MANTA Lens Spatial Workbench** — high-density operational workbench for **NOAA NCEI Uncrewed Systems (UxS)** metadata.
 
-**Architecture Doctrine**:
-1. **Canonical Mission**: One agreed mission model anchors all evidence, assurance, and projections.
-2. **Search First**: Discover federated records from CoMET, OneStop, STAC, and Fleet registries.
-3. **Evidence Overwrites Forbidden**: Pulling records creates observed candidate claims. Only explicit human decisions mutate canonical mission meaning.
-4. **Signal & Rosetta**: Real-time conformance against the NOAA UxS Marine Core Profile and bidirectional semantic mapping.
-5. **Multi-Projections**: ISO 19115-2:2019 XML (preserving DocuComp XLinks), STAC items, DCAT-US 3.0, and OISS manifests.
-
-Use the Top Navigation bar above to explore the **Search**, **Mission**, **Evidence**, **Graph**, **Signal**, **Rosetta**, **Projections**, and **CoMET** views!`,
+**Spatial Workbench Capabilities**:
+- **Discover / Understand / Deliver**: Switch active workspace groups directly via the top interactive breadcrumb bar.
+- **Top / Bottom Dual Panes**: Work in tandem with Knowledge Graph & Oceanographic Map, or Charlie Intake & Accepted Mission.
+- **Draggable Focus Seam**: Drag to resize (or double click for 55/45 balanced view, hover for 1-click swap).
+- **MANTAScript Canvas (⌘K)**: Full-surface execution canvas for fast searches, cleaning, and surface pairing commands.
+- **Contextual Lens**: Slide over on demand without persistent dashboard clutter.`,
       timestamp: 'Just now',
       modelUsed: 'gemini-3.5-flash',
       groundingSources: [
@@ -69,7 +49,7 @@ Use the Top Navigation bar above to explore the **Search**, **Mission**, **Evide
 
   // Derive live XML and validation issues from canonical mission state
   const liveXml = useMemo(() => generateIso19115Xml(mission), [mission]);
-  const { issues, score } = useMemo(() => validateUxSMission(mission), [mission]);
+  const { score } = useMemo(() => validateUxSMission(mission), [mission]);
 
   // Keep mission conformance score in sync with calculated score
   React.useEffect(() => {
@@ -183,7 +163,6 @@ Use the Top Navigation bar above to explore the **Search**, **Mission**, **Evide
         return c;
       });
 
-      // If this accepted claim resolves the platform identity conflict
       let updatedPlatform = { ...prev.platform };
       if (claimId === 'claim-conflict-hull' && acceptedValue) {
         updatedPlatform.name = String(acceptedValue);
@@ -199,7 +178,7 @@ Use the Top Navigation bar above to explore the **Search**, **Mission**, **Evide
     showToast(`Claim accepted by Human Steward into Canonical Mission.`);
   };
 
-  const handleRejectClaim = (claimId: string, reason?: string) => {
+  const handleRejectClaim = (claimId: string) => {
     setMission((prev) => ({
       ...prev,
       claims: (prev.claims || []).map((c) =>
@@ -236,124 +215,12 @@ Use the Top Navigation bar above to explore the **Search**, **Mission**, **Evide
         },
       }));
       showToast('Aligned platform identity with UxS Marine Core Profile.');
-    } else if (finding.canonicalField === 'docucompReferences' || finding.id?.includes('SIG-SEMANTIC-PLACEMENT') || finding.canonicalField === 'docucompSlot') {
+    } else if (
+      finding.canonicalField === 'docucompReferences' ||
+      finding.id?.includes('SIG-SEMANTIC-PLACEMENT') ||
+      finding.canonicalField === 'docucompSlot'
+    ) {
       showToast('Remediated DocuComp semantic placement: Relocated component to canonical gmd:contact slot.');
-    }
-  };
-
-  // Contextual "Ask me more" handler from form fields
-  const handleAskAiAboutField = (fieldName: string, currentVal: string) => {
-    setActiveLensTab('ask');
-    setIsLensPanelOpen(true);
-    handleSendMessage(
-      `I need assistance with the "${fieldName}" field in my NOAA UxS mission model. Current value: "${currentVal}".
-Please review it against NOAA NCEI standards and suggest improvements or required GCMD/ISO formatting.`,
-      'gemini-3.5-flash'
-    );
-  };
-
-  // Automation chips execution
-  const handleRunAutomation = async (
-    type: 'suggest_gcmd' | 'normalize_dates' | 'infer_bbox' | 'resolve_ror' | 'validate_doi'
-  ) => {
-    setIsAutomating(true);
-    try {
-      if (type === 'resolve_ror') {
-        setMission((prev) => ({
-          ...prev,
-          contact: {
-            ...prev.contact,
-            rorId: 'https://ror.org/02z5n2526',
-            organization: 'NOAA National Centers for Environmental Information (NCEI)',
-          },
-        }));
-        showToast('Resolved ROR ID: https://ror.org/02z5n2526 (NOAA NCEI)');
-        setIsAutomating(false);
-        return;
-      }
-
-      if (type === 'validate_doi') {
-        const generatedDoi = `10.25921/${mission.id.toLowerCase().replace(/[^a-z0-9]/g, '-')}-oceans`;
-        setMission((prev) => ({
-          ...prev,
-          doi: generatedDoi,
-        }));
-        showToast(`Assigned NCEI Minting DOI: ${generatedDoi}`);
-        setIsAutomating(false);
-        return;
-      }
-
-      const res = await fetch('/api/assist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskType: type, mission }),
-      });
-      const data = await res.json();
-
-      if (type === 'suggest_gcmd' && data.result) {
-        try {
-          const match = data.result.match(/\[[\s\S]*?\]/);
-          if (match) {
-            const parsed = JSON.parse(match[0]);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setMission((prev) => ({
-                ...prev,
-                keywords: {
-                  ...prev.keywords,
-                  gcmdScience: Array.from(new Set([...prev.keywords.gcmdScience, ...parsed])),
-                },
-              }));
-              showToast(`Added ${parsed.length} suggested GCMD Science Keywords!`);
-            }
-          }
-        } catch {
-          showToast('Suggestions generated in AI chat tab.', 'info');
-        }
-      } else if (type === 'infer_bbox' && data.result) {
-        try {
-          const match = data.result.match(/\{[\s\S]*?\}/);
-          if (match) {
-            const parsed = JSON.parse(match[0]);
-            if (parsed.west !== undefined && parsed.north !== undefined) {
-              setMission((prev) => ({
-                ...prev,
-                spatialExtent: {
-                  ...prev.spatialExtent,
-                  west: parsed.west,
-                  south: parsed.south,
-                  east: parsed.east,
-                  north: parsed.north,
-                  placeName: parsed.placeName || prev.spatialExtent.placeName,
-                },
-              }));
-              showToast(`Inferred bounds: [${parsed.west}, ${parsed.south} to ${parsed.east}, ${parsed.north}]`);
-            }
-          }
-        } catch {
-          showToast('Inferred bounds details placed in context.', 'info');
-        }
-      } else if (type === 'normalize_dates' && data.result) {
-        try {
-          const match = data.result.match(/\{[\s\S]*?\}/);
-          if (match) {
-            const parsed = JSON.parse(match[0]);
-            setMission((prev) => ({
-              ...prev,
-              dateStart: parsed.dateStart || prev.dateStart,
-              dateEnd: parsed.dateEnd || prev.dateEnd,
-              publicationDate: parsed.publicationDate || prev.publicationDate,
-            }));
-            showToast('Normalized mission dates to ISO 8601.');
-          }
-        } catch {
-          showToast('Dates checked.');
-        }
-      }
-    } catch (e: any) {
-      console.error(e);
-      showToast('Automation check completed.', 'info');
-    } finally {
-      setIsAutomating(false);
     }
   };
 
@@ -389,125 +256,23 @@ Please review it against NOAA NCEI standards and suggest improvements or require
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#060b14] text-slate-100 font-sans">
-      {/* Top Global Navigation Bar with Top Nav Tabs & Scoped Authority Statuses */}
-      <TopNav
+    <>
+      <WorkbenchShell
         mission={mission}
-        activeTab={activeTab}
-        onChangeTab={setActiveTab}
+        setMission={setMission}
         cometMode={cometMode}
-        onChangeCometMode={setCometMode}
-        onToggleLensPanel={() => setIsLensPanelOpen(!isLensPanelOpen)}
-        isLensPanelOpen={isLensPanelOpen}
-        activeLensTab={activeLensTab}
+        setCometMode={setCometMode}
+        chatMessages={chatMessages}
+        onSendMessage={handleSendMessage}
+        isChatLoading={isChatLoading}
+        onApplySuggestedUpdates={handleApplySuggestedUpdates}
+        onApplySignalRemediation={handleApplySignalRemediation}
+        onAcceptClaim={handleAcceptClaim}
+        onRejectClaim={handleRejectClaim}
+        onPullAsEvidence={handlePullAsEvidence}
+        toast={toast}
+        showToast={showToast}
       />
-
-      {/* Contextual Automations Bar */}
-      <AutomationChips
-        onRunAutomation={handleRunAutomation}
-        isLoading={isAutomating}
-      />
-
-      {/* Notification Toast */}
-      {toast && (
-        <div className="fixed top-20 right-4 z-50 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0e1c31] border border-cyan-400 text-xs font-mono text-cyan-200 shadow-2xl shadow-cyan-950/80">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{toast.message}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Main Workspace Layout */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Central Viewport depending on active workspace tab */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          {activeTab === 'search' && (
-            <MantasSearch
-              currentMission={mission}
-              onPullAsEvidence={handlePullAsEvidence}
-              onSelectAsMission={(partial) => {
-                setMission((prev) => ({ ...prev, ...partial }));
-                showToast('Loaded candidate mission attributes into workspace.');
-              }}
-              onSwitchTab={setActiveTab}
-            />
-          )}
-
-          {activeTab === 'mission' && (
-            <div className="flex-1 overflow-hidden">
-              <MetadataForm
-                mission={mission}
-                onChangeMission={setMission}
-                onAskAiAboutField={handleAskAiAboutField}
-                onValidateNow={() => {
-                  setActiveTab('signal');
-                }}
-              />
-            </div>
-          )}
-
-          {activeTab === 'evidence' && (
-            <EvidenceWorkspace
-              mission={mission}
-              onAcceptClaim={handleAcceptClaim}
-              onRejectClaim={handleRejectClaim}
-              onSelectDocucompRef={(ref) => {
-                showToast(`Inspecting DocuComp XLink: ${ref.href}`);
-              }}
-            />
-          )}
-
-          {activeTab === 'graph' && (
-            <MissionGraph
-              mission={mission}
-              onNavigateTab={setActiveTab}
-              onSelectNodeInLens={(node) => {
-                // If the user selects a node, optionally update the chat or contextual lens
-              }}
-            />
-          )}
-
-          {activeTab === 'signal' && (
-            <SignalAssurance
-              mission={mission}
-              onApplyRemediation={handleApplySignalRemediation}
-              onSwitchTab={setActiveTab}
-            />
-          )}
-
-          {activeTab === 'rosetta' && (
-            <RosettaViewer mission={mission} />
-          )}
-
-          {activeTab === 'projections' && (
-            <ProjectionsWorkspace mission={mission} />
-          )}
-
-          {activeTab === 'comet' && (
-            <CometAdapterWorkspace
-              mission={mission}
-              mode={cometMode}
-              onChangeMode={setCometMode}
-            />
-          )}
-        </main>
-
-        {/* Collapsible Right Contextual Lens Panel (Housing AI Chatbot, XML, Evidence, etc.) */}
-        <RightLensPanel
-          isOpen={isLensPanelOpen}
-          onClose={() => setIsLensPanelOpen(false)}
-          mission={mission}
-          activeLensTab={activeLensTab}
-          onChangeLensTab={setActiveLensTab}
-          onSwitchMainTab={setActiveTab}
-          chatMessages={chatMessages}
-          onSendMessage={handleSendMessage}
-          isChatLoading={isChatLoading}
-          onApplySuggestedUpdates={handleApplySuggestedUpdates}
-          cometMode={cometMode}
-        />
-      </div>
 
       {/* Template Selector Modal */}
       <TemplateSelectorModal
@@ -519,6 +284,6 @@ Please review it against NOAA NCEI standards and suggest improvements or require
         }}
         currentMissionId={mission.id}
       />
-    </div>
+    </>
   );
 }

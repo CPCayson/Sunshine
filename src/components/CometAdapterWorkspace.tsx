@@ -40,7 +40,7 @@ export const CometAdapterWorkspace: React.FC<CometAdapterWorkspaceProps> = ({
   const mode = propMode || internalMode;
   const [observations, setObservations] = useState<ExternalServiceObservation[]>([]);
   const [isProbing, setIsProbing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'SERVICES_OBSERVATION' | 'EXPECTED_VS_OBSERVED' | 'DOCUCOMP_READER' | 'OFFICIAL_CONTRACT'>('SERVICES_OBSERVATION');
+  const [activeTab, setActiveTab] = useState<'SERVICES_OBSERVATION' | 'EXPECTED_VS_OBSERVED' | 'DOCUCOMP_READER' | 'OFFICIAL_CONTRACT' | 'COMPANION_WORKFLOW'>('COMPANION_WORKFLOW');
 
   // Custom DocuComp UUID probe state
   const [docucompInputUuid, setDocucompInputUuid] = useState('440b3ac2-64a5-46e2-9846-38305718b644');
@@ -230,6 +230,18 @@ export const CometAdapterWorkspace: React.FC<CometAdapterWorkspaceProps> = ({
 
       {/* View Tabs */}
       <div className="bg-[#080d18] border-b border-slate-800 px-6 flex gap-2">
+        <button
+          onClick={() => setActiveTab('COMPANION_WORKFLOW')}
+          className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
+            activeTab === 'COMPANION_WORKFLOW'
+              ? 'border-cyan-400 text-cyan-300 bg-cyan-950/20'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5 text-cyan-400" />
+          <span>CoMET Companion Workflow</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('SERVICES_OBSERVATION')}
           className={`px-4 py-3 text-xs font-mono font-bold border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${
@@ -663,6 +675,131 @@ export const CometAdapterWorkspace: React.FC<CometAdapterWorkspaceProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: COMPANION WORKFLOW */}
+        {activeTab === 'COMPANION_WORKFLOW' && (
+          <div className="space-y-6">
+            {/* The 7-Step Pipeline Header */}
+            <div className="bg-[#081224] border border-cyan-500/30 rounded-xl p-5 shadow-lg space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-cyan-400" />
+                  <h3 className="text-xs font-mono font-bold text-cyan-200 uppercase tracking-wider">
+                    CoMET Companion Boundary: PULL → INSPECT → LOCAL READINESS → COMPARE → FIX IN COMET → RE-OBSERVE
+                  </h3>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40">
+                  COMPANION WORKSPACE (NO METADATA DUPLICATION)
+                </span>
+              </div>
+
+              {/* Step Sequence Pills */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs font-mono">
+                <div className="p-2.5 rounded bg-[#040813] border border-cyan-500/30 text-center">
+                  <span className="text-cyan-400 font-bold block text-[10px]">STEP 1</span>
+                  <span className="text-slate-200">1. PULL</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Read existing XML</span>
+                </div>
+                <div className="p-2.5 rounded bg-[#040813] border border-cyan-500/30 text-center">
+                  <span className="text-cyan-400 font-bold block text-[10px]">STEP 2</span>
+                  <span className="text-slate-200">2. INSPECT</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Shred observations</span>
+                </div>
+                <div className="p-2.5 rounded bg-[#040813] border border-cyan-500/30 text-center">
+                  <span className="text-cyan-400 font-bold block text-[10px]">STEP 3</span>
+                  <span className="text-slate-200">3. READINESS</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Local Signal checks</span>
+                </div>
+                <div className="p-2.5 rounded bg-[#040813] border border-cyan-500/30 text-center">
+                  <span className="text-cyan-400 font-bold block text-[10px]">STEP 4</span>
+                  <span className="text-slate-200">4. SERVICES</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Authorized checks</span>
+                </div>
+                <div className="p-2.5 rounded bg-[#040813] border border-cyan-500/30 text-center">
+                  <span className="text-cyan-400 font-bold block text-[10px]">STEP 5</span>
+                  <span className="text-slate-200">5. COMPARE</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Rosetta explanation</span>
+                </div>
+                <div className="p-2.5 rounded bg-[#040813] border border-cyan-500/30 text-center">
+                  <span className="text-cyan-400 font-bold block text-[10px]">STEP 6</span>
+                  <span className="text-slate-200">6. FIX IN COMET</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Authoritative CEDIT</span>
+                </div>
+                <div className="p-2.5 rounded bg-[#040813] border border-cyan-500/30 text-center">
+                  <span className="text-cyan-400 font-bold block text-[10px]">STEP 7</span>
+                  <span className="text-slate-200">7. RE-OBSERVE</span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Freshness reset</span>
+                </div>
+              </div>
+
+              {/* Scoped Truth Boundary Banner */}
+              <div className="p-3 bg-amber-950/30 border border-amber-500/30 rounded-lg text-xs font-mono text-amber-200/90 flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-amber-300">AUTHORITY BOUNDARY DOCTRINE:</strong> CoMET PASS = COMET VALIDATION PASS. It does <strong>NOT</strong> mean OISS PASS, ARCHIVE ACCEPTED, R2R QA PASS, or UNIVERSAL METADATA CORRECT. CoMET remains strictly authoritative for CoMET workspace actions and CoMET-generated service assertions.
+                </div>
+              </div>
+            </div>
+
+            {/* Companion Actions Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+              <div className="bg-[#081224] border border-slate-800 rounded-xl p-5 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-bold text-slate-100 uppercase">Pull & Inspect Source Record</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/30">
+                    READ_AUTHORIZED
+                  </span>
+                </div>
+                <p className="text-slate-400 font-sans text-xs">
+                  Inspects original CEDIT XML for record <code>{mission.ceditRecordId || 'CED-2025-0441-UXS'}</code>. Reverse-shreds XML elements into discrete observations without duplicating the CoMET metadata editor.
+                </p>
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={() => setActiveTab('SERVICES_OBSERVATION')}
+                    className="px-3 py-1.5 rounded bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-200 transition-colors cursor-pointer"
+                  >
+                    View Shredded Observations
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('DOCUCOMP_READER')}
+                    className="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition-colors cursor-pointer"
+                  >
+                    Resolve DocuComp XLinks
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-[#081224] border border-slate-800 rounded-xl p-5 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="font-bold text-slate-100 uppercase">Open / Fix in CoMET</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/30">
+                    PRODUCTION_WRITE_GATED
+                  </span>
+                </div>
+                <p className="text-slate-400 font-sans text-xs">
+                  MANTAS does not execute production writes. Edits must be finalized in the authoritative NOAA CoMET/CEDIT interface.
+                </p>
+                <div className="flex items-center gap-2 pt-2">
+                  <a
+                    href="https://data.noaa.gov/cedit/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded bg-[#0b1b36] hover:bg-[#122b56] border border-cyan-500/40 text-cyan-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Launch NOAA CoMET CEDIT</span>
+                  </a>
+                  <button
+                    onClick={() => handleToggleMode('LIVE_OBSERVED_MODE')}
+                    className="px-3 py-1.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition-colors cursor-pointer"
+                  >
+                    Re-Observe (Pull Fresh)
+                  </button>
+                </div>
               </div>
             </div>
           </div>

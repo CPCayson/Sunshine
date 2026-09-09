@@ -303,6 +303,10 @@ export function verifyDocuCompSemanticPlacement(
       id: `SIG-SEMANTIC-PLACEMENT-${component.id}`,
       severity: threeTierVerdict.semanticPlacement === 'CONFLICT' ? 'ERROR' : 'INFO',
       canonicalField: matchedSlot.canonicalRefs[0] || 'docucompSlot',
+      ruleId: threeTierVerdict.ruleId || 'DOCUCOMP_SLOT_MATCH',
+      componentId: component.id,
+      technicalXmlResolves: threeTierVerdict.linkResolution === 'RESOLVED' && threeTierVerdict.xmlValidation === 'VALID',
+      isSemanticallyAppropriate: threeTierVerdict.semanticPlacement === 'SUPPORTED',
       ruleName:
         threeTierVerdict.semanticPlacement === 'CONFLICT'
           ? 'SEMANTIC_PLACEMENT §DocuComp Slot Conformance (Technical vs Semantic)'

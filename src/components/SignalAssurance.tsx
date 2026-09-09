@@ -430,6 +430,21 @@ export const SignalAssurance: React.FC<SignalAssuranceProps> = ({
                 </div>
               </div>
 
+              {activeFinding.sourceProfile === 'charlie-google-form-v3' && activeFinding.sourceFieldId && (
+                <div className="bg-[#050f20] border border-emerald-500/40 p-3 rounded-xl flex items-center justify-between text-xs font-mono">
+                  <div>
+                    <div className="text-[10px] text-emerald-400 font-semibold uppercase">Source Form Field</div>
+                    <div className="text-slate-200">Points to Charlie Intake: <code className="text-emerald-300">{activeFinding.sourceFieldId}</code></div>
+                  </div>
+                  <button
+                    onClick={() => onSwitchTab('charlie-intake')}
+                    className="px-3 py-1.5 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-semibold flex items-center gap-1 transition-colors"
+                  >
+                    Jump to Field →
+                  </button>
+                </div>
+              )}
+
               {/* Remediation Action Card */}
               <div className="bg-[#091326] border border-cyan-500/30 rounded-xl p-4 space-y-3">
                 <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono flex items-center gap-1.5">

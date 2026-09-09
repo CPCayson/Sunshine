@@ -1,0 +1,235 @@
+{
+  "profileId": "charlie-google-form-v3",
+  "version": "1.0.0",
+  "title": "Charlie Google Form Sheet Contract to MANTAS Canonical Crosswalk",
+  "lastUpdated": "2026-09-08",
+  "description": "Versioned crosswalk from Charlie's 25-column Google Form / Sheet response contract to MANTAS canonical candidate paths.",
+  "sourceProvenanceType": "IMPORTED_ARTIFACT",
+  "fields": [
+    {
+      "sourceField": "Timestamp",
+      "sourceLabel": "Submission Timestamp",
+      "conceptualSection": "Metadata & Dataset Basics",
+      "canonicalCandidatePath": "submissionMetadata.observedAt",
+      "transform": "iso8601-datetime",
+      "required": false,
+      "description": "Google Form submission timestamp"
+    },
+    {
+      "sourceField": "fileIdentifier",
+      "sourceLabel": "File Identifier / UUID",
+      "conceptualSection": "Metadata & Dataset Basics",
+      "canonicalCandidatePath": "ceditRecordId",
+      "transform": "trim",
+      "required": true,
+      "description": "Unique record file identifier / accession UUID"
+    },
+    {
+      "sourceField": "hierarchyLevel",
+      "sourceLabel": "Hierarchy Level",
+      "conceptualSection": "Metadata & Dataset Basics",
+      "canonicalCandidatePath": "resourceType",
+      "transform": "lowercase-resource-type",
+      "required": true,
+      "description": "ISO hierarchy scope (dataset, series, collection)"
+    },
+    {
+      "sourceField": "title",
+      "sourceLabel": "Dataset / Mission Title",
+      "conceptualSection": "Metadata & Dataset Basics",
+      "canonicalCandidatePath": "title",
+      "transform": "trim",
+      "required": true,
+      "description": "Primary formal title for the expedition or dataset"
+    },
+    {
+      "sourceField": "alternateTitle",
+      "sourceLabel": "Alternate / Cruise Title",
+      "conceptualSection": "Metadata & Dataset Basics",
+      "canonicalCandidatePath": "alternateTitle",
+      "transform": "trim",
+      "required": false,
+      "description": "Short operational title, cruise code, or secondary designation"
+    },
+    {
+      "sourceField": "pubDate",
+      "sourceLabel": "Publication Date",
+      "conceptualSection": "Citations, DOI & Authors",
+      "canonicalCandidatePath": "publicationDate",
+      "transform": "iso-date",
+      "required": false,
+      "description": "Public dataset release or publication date"
+    },
+    {
+      "sourceField": "doi",
+      "sourceLabel": "Digital Object Identifier (DOI)",
+      "conceptualSection": "Citations, DOI & Authors",
+      "canonicalCandidatePath": "doi",
+      "transform": "clean-doi",
+      "required": false,
+      "description": "Enterprise publication DOI (e.g. 10.25921/...)"
+    },
+    {
+      "sourceField": "accessionID",
+      "sourceLabel": "NCEI Accession ID",
+      "conceptualSection": "Citations, DOI & Authors",
+      "canonicalCandidatePath": "accessionId",
+      "transform": "trim",
+      "required": false,
+      "description": "Permanent NCEI archive accession number"
+    },
+    {
+      "sourceField": "authors",
+      "sourceLabel": "Authors / Originators",
+      "conceptualSection": "Citations, DOI & Authors",
+      "canonicalCandidatePath": "contact.name",
+      "transform": "parse-author-list",
+      "required": true,
+      "description": "Principal investigators and science leads"
+    },
+    {
+      "sourceField": "organization",
+      "sourceLabel": "Lead Organization",
+      "conceptualSection": "Citations, DOI & Authors",
+      "canonicalCandidatePath": "contact.organization",
+      "transform": "trim",
+      "required": true,
+      "description": "Responsible scientific research organization or NOAA line office"
+    },
+    {
+      "sourceField": "abstract",
+      "sourceLabel": "Dataset Abstract",
+      "conceptualSection": "Summary & Scope",
+      "canonicalCandidatePath": "abstract",
+      "transform": "trim",
+      "required": true,
+      "description": "Comprehensive scientific summary of the uncrewed mission"
+    },
+    {
+      "sourceField": "supplemental",
+      "sourceLabel": "Supplemental Information",
+      "conceptualSection": "Summary & Scope",
+      "canonicalCandidatePath": "supplementalInfo",
+      "transform": "trim",
+      "required": false,
+      "description": "Operational remarks, leg breakdowns, environmental constraints"
+    },
+    {
+      "sourceField": "west",
+      "sourceLabel": "West Bounding Longitude",
+      "conceptualSection": "Spatial / Temporal / Vertical Extent",
+      "canonicalCandidatePath": "spatialExtent.west",
+      "transform": "parse-float-wgs84-lon",
+      "required": true,
+      "description": "Westbound longitude in decimal degrees [-180, 180]"
+    },
+    {
+      "sourceField": "east",
+      "sourceLabel": "East Bounding Longitude",
+      "conceptualSection": "Spatial / Temporal / Vertical Extent",
+      "canonicalCandidatePath": "spatialExtent.east",
+      "transform": "parse-float-wgs84-lon",
+      "required": true,
+      "description": "Eastbound longitude in decimal degrees [-180, 180]"
+    },
+    {
+      "sourceField": "south",
+      "sourceLabel": "South Bounding Latitude",
+      "conceptualSection": "Spatial / Temporal / Vertical Extent",
+      "canonicalCandidatePath": "spatialExtent.south",
+      "transform": "parse-float-wgs84-lat",
+      "required": true,
+      "description": "Southbound latitude in decimal degrees [-90, 90]"
+    },
+    {
+      "sourceField": "north",
+      "sourceLabel": "North Bounding Latitude",
+      "conceptualSection": "Spatial / Temporal / Vertical Extent",
+      "canonicalCandidatePath": "spatialExtent.north",
+      "transform": "parse-float-wgs84-lat",
+      "required": true,
+      "description": "Northbound latitude in decimal degrees [-90, 90]"
+    },
+    {
+      "sourceField": "beginDate",
+      "sourceLabel": "Survey Start Date",
+      "conceptualSection": "Spatial / Temporal / Vertical Extent",
+      "canonicalCandidatePath": "dateStart",
+      "transform": "iso-date",
+      "required": true,
+      "description": "Expedition commencement date (YYYY-MM-DD)"
+    },
+    {
+      "sourceField": "endDate",
+      "sourceLabel": "Survey End Date",
+      "conceptualSection": "Spatial / Temporal / Vertical Extent",
+      "canonicalCandidatePath": "dateEnd",
+      "transform": "iso-date",
+      "required": true,
+      "description": "Expedition completion date (YYYY-MM-DD)"
+    },
+    {
+      "sourceField": "minDepth",
+      "sourceLabel": "Minimum Depth (m)",
+      "conceptualSection": "Spatial / Temporal / Vertical Extent",
+      "canonicalCandidatePath": "verticalExtent.minDepth",
+      "transform": "parse-float",
+      "required": false,
+      "description": "Minimum vertical depth or survey altitude in meters"
+    },
+    {
+      "sourceField": "maxDepth",
+      "sourceLabel": "Maximum Depth (m)",
+      "conceptualSection": "Spatial / Temporal / Vertical Extent",
+      "canonicalCandidatePath": "verticalExtent.maxDepth",
+      "transform": "parse-float",
+      "required": false,
+      "description": "Maximum water depth surveyed in meters"
+    },
+    {
+      "sourceField": "platform",
+      "sourceLabel": "UxS Platform Identifier / Model",
+      "conceptualSection": "Acquisition & Methods",
+      "canonicalCandidatePath": "platform.name",
+      "transform": "normalize-platform-candidate",
+      "required": true,
+      "description": "Uncrewed vehicle model and hull identification"
+    },
+    {
+      "sourceField": "platformDesc",
+      "sourceLabel": "Platform Specifications",
+      "conceptualSection": "Acquisition & Methods",
+      "canonicalCandidatePath": "platform.type",
+      "transform": "trim",
+      "required": false,
+      "description": "Vehicle classification, propulsion type, and operational capabilities"
+    },
+    {
+      "sourceField": "instrument",
+      "sourceLabel": "Sensor Payload / Instruments",
+      "conceptualSection": "Acquisition & Methods",
+      "canonicalCandidatePath": "instruments",
+      "transform": "normalize-instrument-candidate-list",
+      "required": true,
+      "description": "Survey payload list (sonar, optical, CTD, sub-bottom)"
+    },
+    {
+      "sourceField": "lineage",
+      "sourceLabel": "Lineage / Processing Statement",
+      "conceptualSection": "Acquisition & Methods",
+      "canonicalCandidatePath": "purpose",
+      "transform": "trim",
+      "required": false,
+      "description": "Lineage statement, processing provenance, and navigation calibration"
+    },
+    {
+      "sourceField": "custodianEmail",
+      "sourceLabel": "Data Custodian Email",
+      "conceptualSection": "Submitter / Custodian",
+      "canonicalCandidatePath": "contact.email",
+      "transform": "email-validate",
+      "required": true,
+      "description": "Direct point-of-contact email for data management questions"
+    }
+  ]
+}

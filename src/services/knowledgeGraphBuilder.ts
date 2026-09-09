@@ -9,6 +9,11 @@ import {
   UxSMission
 } from '../types';
 import { verifyDocuCompSemanticPlacement } from './semanticPlacementModule';
+import {
+  destinationReconciliationService,
+  SEED_ONESTOP_OBSERVATION,
+  SEED_CMR_OBSERVATION
+} from './destinationReconciliationService';
 
 export interface BuiltGraph {
   nodes: KnowledgeNode[];
@@ -1864,18 +1869,20 @@ export function buildStableKnowledgeGraph(mission: UxSMission): BuiltGraph {
   // ----------------------------------------------------
   const placementAudit = verifyDocuCompSemanticPlacement(mission);
   placementAudit.findings.forEach((finding) => {
-    const findingNodeId = `sig-finding-${finding.ruleId.toLowerCase()}-${finding.componentId || 'global'}`;
+    const ruleId = finding.ruleId || 'DOCUCOMP_SLOT_MATCH';
+    const compId = finding.componentId || 'global';
+    const findingNodeId = `sig-finding-${ruleId.toLowerCase()}-${compId.toLowerCase()}`;
     
     // Check if finding node exists
-    if (!nodes.some((n) => n.id === findingNodeId || (n.id === 'drift-docucomp-slot-mismatch' && finding.componentId === 'comp-docucomp-synthetic-mismatch'))) {
+    if (!nodes.some((n) => n.id === findingNodeId || (n.id === 'drift-docucomp-slot-mismatch' && compId === 'comp-docucomp-synthetic-mismatch'))) {
       nodes.push({
         id: findingNodeId,
         kind: 'driftFinding',
-        label: `Signal: ${finding.ruleId}`,
+        label: `Signal: ${ruleId}`,
         subtitle: `${finding.technicalXmlResolves ? 'HTTP 200 (Resolves)' : 'HTTP Fail'} / ${finding.isSemanticallyAppropriate ? 'Semantic Match' : 'Semantic Slot Mismatch'}`,
-        canonicalRef: `SIG-${finding.ruleId}`,
+        canonicalRef: `SIG-${ruleId}`,
         state: finding.severity === 'ERROR' ? 'CONFLICT' : 'OBSERVED',
-        provenanceType: (finding.componentId?.includes('synthetic') || finding.ruleId.includes('MISMATCH')) ? 'SYNTHETIC_FIXTURE' : 'LOCAL_DERIVED',
+        provenanceType: ((finding.componentId && finding.componentId.includes('synthetic')) || ruleId.includes('MISMATCH')) ? 'SYNTHETIC_FIXTURE' : 'LOCAL_DERIVED',
         facets: {
           evidence: 'VERIFIED',
           semantics: finding.severity === 'ERROR' ? 'CONFLICT' : 'ACCEPTED',
@@ -1914,6 +1921,152 @@ export function buildStableKnowledgeGraph(mission: UxSMission): BuiltGraph {
           explanation: `Signal placement verdict (${finding.ruleId}): ${finding.message}`,
         });
       }
+    }
+  });
+
+  // ----------------------------------------------------
+  // GRAPHIFY DESTINATION RECONCILIATION & OBSERVATIONS
+  // ----------------------------------------------------
+  const destReconciliation = destinationReconciliationService.reconcileDestinations(
+    SEED_ONESTOP_OBSERVATION,
+    SEED_CMR_OBSERVATION,
+    mission
+  );
+
+  // 1. OneStop Observation Node
+  if (!nodes.some((n) => n.id === 'dest-obs-onestop')) {
+    nodes.push({
+      id: 'dest-obs-onestop',
+      kind: 'destinationObservation',
+      label: 'OneStop/OSIM: EN2501 Record',
+      subtitle: `Observed at ${SEED_ONESTOP_OBSERVATION.observedAt.slice(0, 10)} / Freshness: ${SEED_ONESTOP_OBSERVATION.freshness}`,
+      canonicalRef: SEED_ONESTOP_OBSERVATION.recordIdentifier,
+      state: 'OBSERVED',
+      provenanceType: 'SYNTHETIC_FIXTURE',
+      facets: {
+        evidence: 'VERIFIED',
+        semantics: 'ACCEPTED',
+        profile: 'PASS',
+        projection: 'READY',
+        destination: 'VERIFIED',
+        qa: 'VERIFIED',
+      },
+      metadata: {
+        authority: 'OneStop',
+        sourceSystem: SEED_ONESTOP_OBSERVATION.sourceSystem,
+        responseHash: SEED_ONESTOP_OBSERVATION.responseHash,
+        freshness: SEED_ONESTOP_OBSERVATION.freshness,
+        title: SEED_ONESTOP_OBSERVATION.observedSummary?.title,
+        note: 'Evidence node representing observed state in OneStop. Does not assert local truth.',
+      },
+    });
+  }
+
+  // 2. CMR Observation Node
+  if (!nodes.some((n) => n.id === 'dest-obs-cmr')) {
+    nodes.push({
+      id: 'dest-obs-cmr',
+      kind: 'destinationObservation',
+      label: 'CMR: C1258902144-NOAA_NCEI',
+      subtitle: `Observed at ${SEED_CMR_OBSERVATION.observedAt.slice(0, 10)} / Freshness: ${SEED_CMR_OBSERVATION.freshness}`,
+      canonicalRef: SEED_CMR_OBSERVATION.recordIdentifier,
+      state: 'OBSERVED',
+      provenanceType: 'SYNTHETIC_FIXTURE',
+      facets: {
+        evidence: 'VERIFIED',
+        semantics: 'ACCEPTED',
+        profile: 'PASS',
+        projection: 'READY',
+        destination: 'PARTIAL',
+        qa: 'PARTIAL',
+      },
+      metadata: {
+        authority: 'CMR',
+        sourceSystem: SEED_CMR_OBSERVATION.sourceSystem,
+        responseHash: SEED_CMR_OBSERVATION.responseHash,
+        freshness: SEED_CMR_OBSERVATION.freshness,
+        title: SEED_CMR_OBSERVATION.observedSummary?.title,
+        note: 'Evidence node representing observed state in NASA/NOAA CMR. Does not mutate canonical mission truth.',
+      },
+    });
+  }
+
+  // 3. Connect Projections to Destination Observations via OBSERVATION_EVIDENCES
+  if (!edges.some((e) => e.id === 'e-iso-evidences-onestop')) {
+    edges.push({
+      id: 'e-iso-evidences-onestop',
+      from: 'dest-obs-onestop',
+      to: 'proj-iso-record',
+      predicate: 'OBSERVATION_EVIDENCES',
+      status: 'ACCEPTED',
+      confidence: 1.0,
+      family: 'EVIDENCE',
+      direction: 'FORWARD',
+      explanation: 'OneStop observed catalog entry evidences the deployed ISO 19115-2 projection.',
+    });
+  }
+
+  if (!edges.some((e) => e.id === 'e-cmr-evidences-iso')) {
+    edges.push({
+      id: 'e-cmr-evidences-iso',
+      from: 'dest-obs-cmr',
+      to: 'proj-iso-record',
+      predicate: 'OBSERVATION_EVIDENCES',
+      status: 'ACCEPTED',
+      confidence: 0.95,
+      family: 'EVIDENCE',
+      direction: 'FORWARD',
+      explanation: 'CMR harvested concept entry evidences the published ISO 19115-2 projection.',
+    });
+  }
+
+  // 4. Graphify Semantic Differences between OneStop and CMR
+  destReconciliation.differences.forEach((diff) => {
+    const dim = diff.dimension || 'unknown';
+    const diffNodeId = `diff-dest-${dim.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    
+    if (!nodes.some((n) => n.id === diffNodeId)) {
+      nodes.push({
+        id: diffNodeId,
+        kind: 'driftFinding',
+        label: `Dest Diff: ${dim}`,
+        subtitle: `Class: ${diff.diffClass} / Severity: ${diff.severity}`,
+        canonicalRef: `DIFF-${dim.toUpperCase()}`,
+        state: diff.diffClass === 'SEMANTIC_DISCREPANCY' ? 'CONFLICT' : 'OBSERVED',
+        provenanceType: 'LOCAL_DERIVED',
+        facets: {
+          evidence: 'SUPPORTED',
+          semantics: diff.diffClass === 'SEMANTIC_DISCREPANCY' ? 'CONFLICT' : 'ACCEPTED',
+          profile: 'PASS',
+          projection: 'READY',
+          destination: diff.diffClass === 'SEMANTIC_DISCREPANCY' ? 'CONFLICT' : 'PARTIAL',
+          qa: diff.diffClass === 'SEMANTIC_DISCREPANCY' ? 'CONFLICT' : 'VERIFIED',
+        },
+        metadata: {
+          dimension: diff.dimension,
+          diffClass: diff.diffClass,
+          severity: diff.severity,
+          impact: diff.impact,
+          remediation: diff.remediationRecommendation,
+          leftObserved: JSON.stringify(diff.leftValue),
+          rightObserved: JSON.stringify(diff.rightValue),
+        },
+      });
+    }
+
+    // Connect difference to destination observations via RECONCILED_WITH edge
+    if (!edges.some((e) => e.id === `e-recon-${diffNodeId}`)) {
+      edges.push({
+        id: `e-recon-${diffNodeId}`,
+        from: 'dest-obs-onestop',
+        to: diffNodeId,
+        predicate: 'RECONCILED_WITH',
+        status: diff.diffClass === 'SEMANTIC_DISCREPANCY' ? 'CONFLICT' : 'ACCEPTED',
+        confidence: 1.0,
+        family: 'VERIFICATION',
+        direction: 'FORWARD',
+        explanation: `Destination reconciliation comparison finding: ${diff.impact}`,
+      });
     }
   });
 

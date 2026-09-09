@@ -14,7 +14,9 @@ import {
   ChevronRight,
   Sparkles,
   HelpCircle,
-  Database
+  Database,
+  FileSpreadsheet,
+  Share2
 } from 'lucide-react';
 import { ActiveWorkspaceTab, UxSMission } from '../types';
 import { CometOperationMode } from '../services/cometAdapter';
@@ -51,9 +53,11 @@ export const TopNav: React.FC<TopNavProps> = ({
 
   const navItems: Array<{ id: ActiveWorkspaceTab; label: string; icon: React.ReactNode }> = [
     { id: 'search', label: 'Search', icon: <Search className="w-3.5 h-3.5" /> },
+    { id: 'charlie-intake', label: 'Charlie Intake', icon: <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" /> },
     { id: 'mission', label: 'Mission', icon: <Compass className="w-3.5 h-3.5" /> },
     { id: 'evidence', label: 'Evidence', icon: <Database className="w-3.5 h-3.5" /> },
     { id: 'graph', label: 'Graph', icon: <GitFork className="w-3.5 h-3.5" /> },
+    { id: 'constellation', label: 'Constellation', icon: <Share2 className="w-3.5 h-3.5 text-purple-400" /> },
     { id: 'signal', label: 'Signal', icon: <Activity className="w-3.5 h-3.5" /> },
     { id: 'rosetta', label: 'Rosetta', icon: <Languages className="w-3.5 h-3.5" /> },
     { id: 'projections', label: 'Projections', icon: <Layers className="w-3.5 h-3.5" /> },

@@ -121,8 +121,8 @@ export const MissionGraph: React.FC<MissionGraphProps> = ({
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const match =
-          node.label.toLowerCase().includes(query) ||
-          node.kind.toLowerCase().includes(query) ||
+          (node.label && node.label.toLowerCase().includes(query)) ||
+          (node.kind && node.kind.toLowerCase().includes(query)) ||
           (node.subtitle && node.subtitle.toLowerCase().includes(query));
         if (!match) return;
       }
@@ -719,7 +719,7 @@ export const MissionGraph: React.FC<MissionGraphProps> = ({
                   const isHighlighted = highlightedNodeIds.includes(node.id);
                   const isDimmed =
                     (highlightedNodeIds.length > 0 && !isHighlighted) ||
-                    (searchQuery && !node.label.toLowerCase().includes(searchQuery.toLowerCase()));
+                    (searchQuery && !(node.label && node.label.toLowerCase().includes(searchQuery.toLowerCase())));
 
                   // Card styling by kind
                   let strokeColor = '#0e7490';

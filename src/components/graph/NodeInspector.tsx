@@ -298,6 +298,48 @@ export const NodeInspector: React.FC<NodeInspectorProps> = ({
           </div>
         )}
 
+        {/* Destination Observation Evidence Card */}
+        {node.kind === 'destinationObservation' && (
+          <div className="p-3.5 bg-[#081224] border border-purple-500/30 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-purple-300 font-bold text-xs uppercase">
+                <Database className="w-4 h-4 text-purple-400" />
+                <span>Destination Evidence Boundary</span>
+              </div>
+              <span className="text-[9px] px-2 py-0.5 rounded bg-purple-950 border border-purple-700 text-purple-300 font-mono">
+                EVIDENCE NODE
+              </span>
+            </div>
+
+            <div className="p-2.5 bg-[#040814] border border-purple-900/40 rounded-lg text-xs space-y-2">
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-400">Authority:</span>
+                <span className="text-purple-300 font-bold">{node.metadata?.authority}</span>
+              </div>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-400">Source System:</span>
+                <span className="text-slate-200 font-mono text-[10px] truncate max-w-[200px]">
+                  {node.metadata?.sourceSystem}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-400">Response Hash:</span>
+                <code className="text-amber-300 text-[10px] font-mono">{node.metadata?.responseHash}</code>
+              </div>
+              <div className="flex justify-between items-center text-[11px]">
+                <span className="text-slate-400">Freshness:</span>
+                <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-mono text-[10px]">
+                  {node.metadata?.freshness || 'CURRENT'}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-2.5 bg-amber-950/20 border border-amber-600/30 rounded-lg text-[11px] text-amber-200/90 font-sans">
+              <strong>Truth Boundary:</strong> This node represents observed external evidence retrieved from {node.metadata?.authority}. It does <em>not</em> mutate canonical mission truth and does <em>not</em> assert local outcomes.
+            </div>
+          </div>
+        )}
+
         {/* Assurance Facets Matrix */}
         {node.facets && (
           <div className="p-3 bg-[#081224] border border-slate-800 rounded-xl space-y-2">
