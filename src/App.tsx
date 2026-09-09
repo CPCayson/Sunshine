@@ -10,12 +10,14 @@ import { INITIAL_MISSIONS } from './data/missions';
 import { generateIso19115Xml, validateUxSMission } from './utils/xmlGenerator';
 import { WorkbenchShell } from './components/shell/WorkbenchShell';
 import { TemplateSelectorModal } from './components/TemplateSelectorModal';
+import { CorpusWorkspace } from './components/CorpusWorkspace';
 import { CometOperationMode } from './services/cometAdapter';
 
 export default function App() {
   const [mission, setMission] = useState<UxSMission>(INITIAL_MISSIONS[0]);
   const [cometMode, setCometMode] = useState<CometOperationMode>('LIVE_OBSERVED_MODE');
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isCorpusOpen, setIsCorpusOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
   // Initial welcome message from MANTA Lens AI
@@ -273,6 +275,17 @@ export default function App() {
         toast={toast}
         showToast={showToast}
       />
+
+      <button
+        type="button"
+        onClick={() => setIsCorpusOpen(true)}
+        className="fixed left-4 top-14 z-[70] px-3 py-1.5 rounded-lg bg-[#07111f]/95 border border-cyan-500/30 text-cyan-300 text-[10px] font-mono font-bold tracking-wider shadow-xl hover:bg-cyan-950/70 hover:border-cyan-400/50 transition-colors"
+        title="Open source-backed UxS evidence corpus"
+      >
+        UxS CORPUS
+      </button>
+
+      {isCorpusOpen && <CorpusWorkspace onClose={() => setIsCorpusOpen(false)} />}
 
       {/* Template Selector Modal */}
       <TemplateSelectorModal
