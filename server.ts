@@ -16,7 +16,6 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-// Lazy/safe initialization of Gemini SDK
 let genAIClient: GoogleGenAI | null = null;
 function getGenAI(): GoogleGenAI {
   if (!genAIClient) {
@@ -36,7 +35,6 @@ function getGenAI(): GoogleGenAI {
   return genAIClient;
 }
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -45,7 +43,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Chatbot endpoint with Search Grounding
 app.post('/api/chat', async (req, res) => {
   try {
     const {
@@ -62,7 +59,6 @@ app.post('/api/chat', async (req, res) => {
 
     const ai = getGenAI();
 
-    // Prepare system instruction with NOAA CoMET & UxS domain knowledge
     const systemInstruction = `You are MANTA Lens AI, the authoritative metadata intelligence companion for NOAA NCEI (National Centers for Environmental Information) and CoMET (Collection Metadata Enterprise Tool) based on the CEDIT OpenAPI (https://data.noaa.gov/cedit/openApiDoc.html).
 Your primary role is assisting marine scientists, expedition leads, and data managers in authoring, validating, and publishing Uncrewed Systems (UxS - UUVs, ROVs, USVs, ocean gliders, sail drones) mission metadata according to ISO 19115-2:2019 and NOAA UxS-Marine-Core schemas.
 
@@ -93,7 +89,6 @@ Guidelines:
 \`\`\`
 This allows the user to click and auto-apply your suggestions directly to the form and interactive map!`;
 
-    // Map history to format for Gemini
     const contents: any[] = [];
     for (const msg of history) {
       if (msg.sender === 'user') {
@@ -102,14 +97,8 @@ This allows the user to click and auto-apply your suggestions directly to the fo
         contents.push({ role: 'model', parts: [{ text: msg.text }] });
       }
     }
-    // Append current user message
     contents.push({ role: 'user', parts: [{ text: message }] });
 
-    // Model selection rules:
-    // User metadata specifies:
-    // - gemini-3.5-flash with googleSearch tool for search grounding / general tasks
-    // - gemini-3.1-pro-preview for particularly complex tasks
-    // - gemini-3.1-flash-lite for fast tasks
     const targetModel = model || 'gemini-3.5-flash';
 
     const response = await ai.models.generateContent({
@@ -123,8 +112,6 @@ This allows the user to click and auto-apply your suggestions directly to the fo
     });
 
     const responseText = response.text || '';
-
-    // Extract grounding sources
     const groundingChunks =
       response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const groundingSources: Array<{ uri: string; title: string }> = [];
@@ -151,7 +138,6 @@ This allows the user to click and auto-apply your suggestions directly to the fo
   }
 });
 
-// Fast automated assistance chips endpoint
 app.post('/api/assist', async (req, res) => {
   try {
     const { taskType, mission } = req.body;
@@ -196,20 +182,17 @@ Return ONLY JSON: {"dateStart": "YYYY-MM-DD", "dateEnd": "YYYY-MM-DD", "publicat
   }
 });
 
-// Helper for cryptographic payload hashing
 function computeSha256(data: string): string {
   return crypto.createHash('sha256').update(data).digest('hex').slice(0, 16);
 }
 
-// CoMET CEDIT OpenAPI Status & Validation Endpoints (https://data.noaa.gov/cedit/openApiDoc.html)
-// Note: Writes are strictly out of scope per verification doctrine.
 app.get('/api/comet/status', (req, res) => {
   res.json({
     status: 'online',
     server: 'https://data.noaa.gov/cedit',
     documentationUrl: 'https://data.noaa.gov/cedit/openApiDoc.html',
     mode: 'READ_ONLY',
-    sessionAuthenticated: false,
+    sessionAuthenticated: Boolean(process.env.COMET_COOKIE),
     documentedContracts: [
       { method: 'GET', path: '/metadata/{uuid}', desc: 'Retrieve XML record by UUID' },
       { method: 'GET', path: '/metadata/search', desc: 'Search catalog records' },
@@ -220,13 +203,15 @@ app.get('/api/comet/status', (req, res) => {
       { method: 'POST', path: '/recordServices/linkcheck', desc: 'Verify CI_OnlineResource URL accessibility' },
       { method: 'POST', path: '/recordServices/upload', desc: 'Upload file for processing' }
     ],
-    message: 'CoMET live services require NOAA CAS / ICAM credentials. Probing will report authentic HTTP status without silent simulation.',
+    searchContext: {
+      primaryRecordGroupConfigured: Boolean(process.env.COMET_PRIMARY_RECORD_GROUP),
+      additionalRecordGroupsConfigured: Boolean(process.env.COMET_CONTEXT_RECORD_GROUPS),
+    },
+    message: 'CoMET live services require NOAA CAS / ICAM credentials. Probing reports authentic HTTP status without silent simulation.',
     timestamp: new Date().toISOString(),
   });
 });
 
-// Live probe for official CoMET Record Services
-// Upstream operations: POST /recordServices/validate, /resolver, /rubricV2, /linkcheck
 app.post('/api/comet/recordServices/probe', async (req, res) => {
   const { service, xml } = req.body;
   const validServices = ['validate', 'resolver', 'rubricV2', 'linkcheck'];
@@ -251,9 +236,10 @@ app.post('/api/comet/recordServices/probe', async (req, res) => {
         'Content-Type': 'application/xml',
         'Accept': 'application/xml, text/xml, application/json, text/html, */*',
         'User-Agent': 'MANTAS-Lens-Auditor/1.0',
+        ...(process.env.COMET_COOKIE ? { Cookie: process.env.COMET_COOKIE } : {}),
       },
       body: payloadXml,
-      redirect: 'manual', // Strictly intercept redirects (do NOT auto-follow 302 to login page as success)
+      redirect: 'manual',
       signal: AbortSignal.timeout(6000),
     });
 
@@ -262,7 +248,6 @@ app.post('/api/comet/recordServices/probe', async (req, res) => {
     const location = upstreamRes.headers.get('location') || '';
     const bodyText = await upstreamRes.text();
     const responseHash = `sha256:${computeSha256(bodyText || location || String(httpStatus))}`;
-
     const isCasRedirect = (httpStatus === 302 || httpStatus === 301) && location.includes('cas/login');
 
     if (isCasRedirect) {
@@ -271,11 +256,7 @@ app.post('/api/comet/recordServices/probe', async (req, res) => {
         service: `POST ${upstreamPath}`,
         authority: 'NOAA CoMET',
         upstreamEndpoint: upstreamUrl,
-        officialContract: {
-          method: 'POST',
-          path: upstreamPath,
-          server: 'https://data.noaa.gov/cedit',
-        },
+        officialContract: { method: 'POST', path: upstreamPath, server: 'https://data.noaa.gov/cedit' },
         requestArtifactHash: requestHash,
         responseArtifactHash: responseHash,
         timestamp,
@@ -296,11 +277,7 @@ app.post('/api/comet/recordServices/probe', async (req, res) => {
         service: `POST ${upstreamPath}`,
         authority: 'NOAA CoMET',
         upstreamEndpoint: upstreamUrl,
-        officialContract: {
-          method: 'POST',
-          path: upstreamPath,
-          server: 'https://data.noaa.gov/cedit',
-        },
+        officialContract: { method: 'POST', path: upstreamPath, server: 'https://data.noaa.gov/cedit' },
         requestArtifactHash: requestHash,
         responseArtifactHash: responseHash,
         timestamp,
@@ -315,17 +292,12 @@ app.post('/api/comet/recordServices/probe', async (req, res) => {
       return;
     }
 
-    // Other HTTP status
     res.json({
       id: `obs-srv-${service}-${Date.now()}`,
       service: `POST ${upstreamPath}`,
       authority: 'NOAA CoMET',
       upstreamEndpoint: upstreamUrl,
-      officialContract: {
-        method: 'POST',
-        path: upstreamPath,
-        server: 'https://data.noaa.gov/cedit',
-      },
+      officialContract: { method: 'POST', path: upstreamPath, server: 'https://data.noaa.gov/cedit' },
       requestArtifactHash: requestHash,
       responseArtifactHash: responseHash,
       timestamp,
@@ -343,11 +315,7 @@ app.post('/api/comet/recordServices/probe', async (req, res) => {
       service: `POST ${upstreamPath}`,
       authority: 'NOAA CoMET',
       upstreamEndpoint: upstreamUrl,
-      officialContract: {
-        method: 'POST',
-        path: upstreamPath,
-        server: 'https://data.noaa.gov/cedit',
-      },
+      officialContract: { method: 'POST', path: upstreamPath, server: 'https://data.noaa.gov/cedit' },
       requestArtifactHash: requestHash,
       timestamp,
       httpStatus: null,
@@ -359,8 +327,6 @@ app.post('/api/comet/recordServices/probe', async (req, res) => {
   }
 });
 
-// Live server-side dereference probe for public NOAA DocuComp Component Registry
-// Upstream operation: GET https://data.noaa.gov/docucomp/{uuid}
 app.get('/api/docucomp/dereference', async (req, res) => {
   const target = (req.query.url as string) || (req.query.uuid as string);
   if (!target) {
@@ -394,11 +360,7 @@ app.get('/api/docucomp/dereference', async (req, res) => {
         id: `res-obs-live-${uuid}`,
         uuid,
         upstreamUrl,
-        officialContract: {
-          method: 'GET',
-          path: `/docucomp/${uuid}`,
-          server: 'https://data.noaa.gov',
-        },
+        officialContract: { method: 'GET', path: `/docucomp/${uuid}`, server: 'https://data.noaa.gov' },
         httpStatus,
         contentType,
         responseHash,
@@ -413,11 +375,7 @@ app.get('/api/docucomp/dereference', async (req, res) => {
         id: `res-obs-live-${uuid}`,
         uuid,
         upstreamUrl,
-        officialContract: {
-          method: 'GET',
-          path: `/docucomp/${uuid}`,
-          server: 'https://data.noaa.gov',
-        },
+        officialContract: { method: 'GET', path: `/docucomp/${uuid}`, server: 'https://data.noaa.gov' },
         httpStatus,
         contentType,
         responseHash,
@@ -444,51 +402,116 @@ app.get('/api/docucomp/dereference', async (req, res) => {
   }
 });
 
-// Live probe for official CoMET metadata search endpoint
-// Upstream operation: GET https://data.noaa.gov/cedit/metadata/search
-app.get('/api/comet/metadata/search', async (req, res) => {
-  const upstreamUrl = 'https://data.noaa.gov/cedit/metadata/search';
-  const timestamp = new Date().toISOString();
-  try {
-    const upstreamRes = await fetch(upstreamUrl, {
-      method: 'GET',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(6000),
-    });
-    const httpStatus = upstreamRes.status;
-    const location = upstreamRes.headers.get('location') || '';
-    const isCas = (httpStatus === 302 || httpStatus === 301) && location.includes('cas/login');
-
-    res.json({
-      service: 'GET /metadata/search',
-      upstreamUrl,
-      officialContract: {
-        method: 'GET',
-        path: '/metadata/search',
-        server: 'https://data.noaa.gov/cedit',
-      },
-      httpStatus,
-      provenanceType: 'LIVE_OBSERVED',
-      authStatus: isCas ? 'AUTH_REQUIRED' : 'NOT_REQUIRED',
-      result: isCas
-        ? `AUTH_REQUIRED: Real HTTP ${httpStatus} returned. Redirected to CAS login (${location.slice(0, 60)}...).`
-        : `HTTP ${httpStatus} response from NOAA CEDIT.`,
-      timestamp,
-    });
-  } catch (err: any) {
-    res.json({
-      service: 'GET /metadata/search',
-      upstreamUrl,
-      httpStatus: null,
-      provenanceType: 'NOT_IMPLEMENTED',
-      authStatus: 'UNAVAILABLE_FROM_RUNTIME',
-      result: `UNAVAILABLE_FROM_RUNTIME: ${err?.message || err}`,
-      timestamp,
-    });
+function parseCometRows(payload: any): any[] {
+  if (Array.isArray(payload)) return payload;
+  for (const key of ['hits', 'results', 'records', 'data', 'items']) {
+    if (Array.isArray(payload?.[key])) return payload[key];
   }
+  return [];
+}
+
+// Read-only CoMET workspace/context search. The browser never receives the
+// NOAA session secret. The route searches only explicitly configured record groups.
+app.get('/api/comet/metadata/search', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  const requestedGroup = String(req.query.recordGroup || '').trim();
+  const primaryGroup = String(process.env.COMET_PRIMARY_RECORD_GROUP || '').trim();
+  const contextGroups = String(process.env.COMET_CONTEXT_RECORD_GROUPS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const groups = requestedGroup
+    ? [requestedGroup]
+    : Array.from(new Set([primaryGroup, ...contextGroups].filter(Boolean)));
+  const timestamp = new Date().toISOString();
+
+  if (!q) {
+    res.status(400).json({ error: 'Missing q query parameter.' });
+    return;
+  }
+
+  if (groups.length === 0) {
+    res.json({
+      service: 'GET /metadata/search',
+      configured: false,
+      authStatus: process.env.COMET_COOKIE ? 'AUTHENTICATED' : 'UNAVAILABLE_FROM_RUNTIME',
+      primaryRecordGroup: null,
+      hits: [],
+      result: 'NOT_CONFIGURED: Set COMET_PRIMARY_RECORD_GROUP and optional COMET_CONTEXT_RECORD_GROUPS to enable scoped CoMET context search.',
+      timestamp,
+    });
+    return;
+  }
+
+  const allHits: any[] = [];
+  const observations: any[] = [];
+  let authRequired = false;
+
+  for (const recordGroup of groups) {
+    const params = new URLSearchParams({ recordGroup, q });
+    const upstreamUrl = `https://data.noaa.gov/cedit/metadata/search?${params.toString()}`;
+    try {
+      const upstreamRes = await fetch(upstreamUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json, application/xml, text/xml, */*',
+          'User-Agent': 'MANTAS-Zen-CoMET-Context/1.0',
+          ...(process.env.COMET_COOKIE ? { Cookie: process.env.COMET_COOKIE } : {}),
+        },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(6000),
+      });
+      const httpStatus = upstreamRes.status;
+      const location = upstreamRes.headers.get('location') || '';
+      const isCas = (httpStatus === 301 || httpStatus === 302) && location.includes('cas/login');
+      const bodyText = isCas ? '' : await upstreamRes.text();
+      let parsed: any = null;
+      try { parsed = bodyText ? JSON.parse(bodyText) : null; } catch { parsed = null; }
+
+      if (isCas || httpStatus === 401 || httpStatus === 403) authRequired = true;
+      const rows = httpStatus === 200 && parsed ? parseCometRows(parsed) : [];
+      rows.forEach((row) => allHits.push({
+        ...row,
+        recordGroup,
+        recordGroupScope: recordGroup === primaryGroup ? 'MANTAS_PRIMARY' : 'OTHER_READ_ONLY',
+      }));
+      observations.push({
+        recordGroup,
+        upstreamUrl,
+        httpStatus,
+        authStatus: isCas || httpStatus === 401 || httpStatus === 403 ? 'AUTH_REQUIRED' : httpStatus === 200 ? 'AUTHENTICATED' : 'NOT_REQUIRED',
+        responseHash: bodyText ? `sha256:${computeSha256(bodyText)}` : undefined,
+      });
+    } catch (err: any) {
+      observations.push({
+        recordGroup,
+        upstreamUrl,
+        httpStatus: null,
+        authStatus: 'UNAVAILABLE_FROM_RUNTIME',
+        error: err?.message || String(err),
+      });
+    }
+  }
+
+  res.json({
+    service: 'GET /metadata/search',
+    configured: true,
+    query: q,
+    primaryRecordGroup: primaryGroup || null,
+    contextRecordGroups: contextGroups,
+    hits: allHits,
+    observations,
+    authStatus: authRequired && allHits.length === 0 ? 'AUTH_REQUIRED' : process.env.COMET_COOKIE ? 'AUTHENTICATED' : 'NOT_REQUIRED',
+    provenanceType: 'LIVE_OBSERVED',
+    result: allHits.length
+      ? `LIVE_OBSERVED: ${allHits.length} read-only CoMET context records returned across ${groups.length} configured record group(s).`
+      : authRequired
+        ? 'AUTH_REQUIRED: CoMET search redirected to NOAA authentication. No fixture records substituted.'
+        : 'LIVE_OBSERVED: Search completed with zero matching CoMET context records.',
+    timestamp,
+  });
 });
 
-// Local Schema Validator (explicitly labeled LOCAL_DERIVED)
 app.post('/api/comet/validate', (req, res) => {
   const { xml } = req.body;
   if (!xml || typeof xml !== 'string') {
