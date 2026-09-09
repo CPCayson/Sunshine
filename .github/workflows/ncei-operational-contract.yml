@@ -1,0 +1,38 @@
+name: NCEI Operational Contract
+
+on:
+  push:
+    branches:
+      - dev/ncei-operational-contract-2026-09-09
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  operational-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript contract check
+        run: npm run lint
+
+      - name: NCEI operational contract gate
+        run: npm test
+
+      - name: Production build
+        run: npm run build

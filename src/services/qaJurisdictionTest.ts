@@ -1,6 +1,10 @@
-import { UxSMission, ScopedReceipt } from '../types';
-import { evaluateOissHandoffProfile } from './oissHandoffService';
-import { destinationReconciliationService, SEED_ONESTOP_OBSERVATION, SEED_CMR_OBSERVATION } from './destinationReconciliationService';
+import { DestinationObservation, ScopedReceipt, UxSMission } from '../types';
+import { evaluateOissHandoffProfile, OissHandoffEvaluationContext } from './oissHandoffService';
+import {
+  destinationReconciliationService,
+  SEED_ONESTOP_OBSERVATION,
+  SEED_CMR_OBSERVATION,
+} from './destinationReconciliationService';
 
 export interface AssertionResult {
   invariantName: string;
@@ -19,115 +23,146 @@ export interface QaJurisdictionTestSuiteResult {
   results: AssertionResult[];
 }
 
-/**
- * Runs automated assertion tests verifying the strict separation of QA jurisdictions:
- * 1. CoMET Validation PASS does NOT transitively assert OISS Ingest Acceptance.
- * 2. MANTAS Handoff Readiness PASS does NOT assert destination ingestion.
- * 3. OneStop / CMR Match does NOT mutate canonical UxSMission state.
- * 4. ScopedReceipts explicitly declare doesNotProve boundaries.
- */
-export function runQaJurisdictionTests(mission: UxSMission): QaJurisdictionTestSuiteResult {
-  const results: AssertionResult[] = [];
+export interface QaJurisdictionTestOptions {
+  oneStopObservation?: DestinationObservation;
+  cmrObservation?: DestinationObservation;
+  oissContext?: OissHandoffEvaluationContext;
+}
 
-  // TEST 1: CoMET Validation vs OISS Handoff
-  // Even if CoMET Schematron/Rubric passes with 100%, OISS has its own independent rules
+const REQUIRED_EXTERNAL_OISS_BOUNDARIES = [
+  'OISS_VALIDATED',
+  'OISS_EXECUTED',
+  'ARCHIVED',
+  'ACCESSIBLE',
+  'DISCOVERABLE',
+];
+
+/**
+ * Automated contract assertions for QA jurisdiction separation.
+ *
+ * These tests are about proof boundaries, not about making a demo green:
+ * - a CoMET result does not become an OISS result;
+ * - a local handoff-ready state does not become destination execution;
+ * - destination observations remain evidence and do not mutate canonical truth;
+ * - every scoped receipt carries explicit negative proof boundaries.
+ */
+export function runQaJurisdictionTests(
+  mission: UxSMission,
+  options: QaJurisdictionTestOptions = {}
+): QaJurisdictionTestSuiteResult {
+  const results: AssertionResult[] = [];
+  const oneStopObservation = options.oneStopObservation || SEED_ONESTOP_OBSERVATION;
+  const cmrObservation = options.cmrObservation || SEED_CMR_OBSERVATION;
+  const oissHandoff = evaluateOissHandoffProfile(mission, options.oissContext);
+
+  // TEST 1: CoMET validation scope must not transitively assert OISS outcomes.
   const cometReceipt: ScopedReceipt = {
     id: 'TEST-REC-COMET-001',
     authority: 'CoMET',
-    authorityScope: 'CEDIT Metadata Workspace & ISO 19139 Schema Conformance',
-    assertion: 'XML_VALID',
+    authorityScope: 'CEDIT Metadata Workspace / ISO validation scope',
+    assertion: 'XML_VALID_FIXTURE',
     observedAt: new Date().toISOString(),
     freshness: 'CURRENT',
-    evidenceRefs: ['comet:schematron:v2.4', 'iso-xml-en2501'],
-    scopeRef: 'ceditRecordId:CED-2025-0441-UXS',
+    evidenceRefs: ['fixture:comet:xml-validation'],
+    scopeRef: 'fixture:cedit-record',
     provenanceType: 'SYNTHETIC_FIXTURE',
-    doesNotProve: ['OISS_INGEST_ACCEPTANCE', 'DATA_FIXITY_VERIFIED', 'PHYSICAL_MEDIA_DELIVERY']
+    doesNotProve: [
+      'OISS_VALIDATED',
+      'OISS_EXECUTED',
+      'ARCHIVED',
+      'ACCESSIBLE',
+      'DISCOVERABLE',
+    ],
   };
 
-  const oissHandoff = evaluateOissHandoffProfile(mission);
-  
-  // CoMET PASS must not change OISS doesNotProve
-  const test1Passed = 
-    cometReceipt.assertion === 'XML_VALID' &&
-    cometReceipt.doesNotProve.includes('OISS_INGEST_ACCEPTANCE') &&
-    oissHandoff.doesNotProve.includes('OISS_INGESTION_EXECUTION');
+  const test1Passed =
+    cometReceipt.doesNotProve.includes('OISS_VALIDATED') &&
+    cometReceipt.doesNotProve.includes('OISS_EXECUTED') &&
+    REQUIRED_EXTERNAL_OISS_BOUNDARIES.every((boundary) =>
+      oissHandoff.doesNotProve.includes(boundary)
+    );
 
   results.push({
-    invariantName: 'QA Jurisdiction Invariant: CoMET PASS != OISS Ingest',
+    invariantName: 'QA Jurisdiction: CoMET result != OISS result',
     passed: test1Passed,
-    jurisdictionA: 'CoMET (Metadata Workspace)',
+    jurisdictionA: 'CoMET metadata / validation scope',
     verdictA: cometReceipt.assertion,
-    jurisdictionB: 'OISS (Archive & Ingest Execution)',
-    verdictB: oissHandoff.overallState,
-    details: 'Verified that CoMET validation pass does not transitively assert OISS ingestion or archive acceptance.',
-    doesNotProveAudit: cometReceipt.doesNotProve
+    jurisdictionB: 'OISS execution / archive scope',
+    verdictB: 'NOT ASSERTED BY COMET',
+    details:
+      'A CoMET result remains scoped to CoMET. It cannot establish OISS validation, execution, archive, access, or discovery.',
+    doesNotProveAudit: cometReceipt.doesNotProve,
   });
 
-  // TEST 2: Local Preflight Readiness vs Destination Outcome
-  // MANTAS Preflight readiness evaluates internal criteria; it does NOT assert destination outcomes locally.
+  // TEST 2: Local readiness can be READY, BLOCKED, or NOT_TESTED; none of those
+  // states grants external execution or outcome authority.
   const test2Passed =
-    oissHandoff.overallState === 'OISS_HANDOFF_READY' &&
-    oissHandoff.doesNotProve.includes('OISS_ARCHIVAL_COMPLETION') &&
-    oissHandoff.doesNotProve.includes('ONESTOP_INDEXING');
+    oissHandoff.externalExecutionAllowed === false &&
+    REQUIRED_EXTERNAL_OISS_BOUNDARIES.every((boundary) =>
+      oissHandoff.doesNotProve.includes(boundary)
+    );
 
   results.push({
-    invariantName: 'Truth Boundary Invariant: Preflight Ready != Destination Outcome',
+    invariantName: 'Truth Boundary: OISS_HANDOFF readiness != destination outcome',
     passed: test2Passed,
-    jurisdictionA: 'MANTAS Preflight (OISS_HANDOFF)',
+    jurisdictionA: 'MANTAS local OISS_HANDOFF preflight',
     verdictA: oissHandoff.overallState,
-    jurisdictionB: 'NOAA Archive / Discovery Destinations',
-    verdictB: 'NOT ASSERTED LOCALLY',
-    details: 'Verified that MANTAS Hand-off preflight readiness does not assert destination archiving or discovery.',
-    doesNotProveAudit: oissHandoff.doesNotProve
+    jurisdictionB: 'OISS / archive / access / discovery authorities',
+    verdictB: 'EXTERNAL OUTCOME NOT ASSERTED',
+    details:
+      'The local preflight result never enables or fabricates OISS execution or downstream destination outcomes.',
+    doesNotProveAudit: oissHandoff.doesNotProve,
   });
 
-  // TEST 3: Destination Reconciliation Immutability
-  // Comparing OneStop and CMR returns evidence differences, but NEVER mutates canonical mission truth.
-  const missionTitleBefore = mission.title;
-  const missionStateBefore = mission.lifecycleState;
-  
+  // TEST 3: Destination reconciliation must not mutate canonical UxSMission.
+  const canonicalBefore = JSON.stringify(mission);
   const comparison = destinationReconciliationService.reconcileDestinations(
-    SEED_ONESTOP_OBSERVATION,
-    SEED_CMR_OBSERVATION,
+    oneStopObservation,
+    cmrObservation,
     mission
   );
-
-  const test3Passed =
-    comparison.differences.length > 0 &&
-    mission.title === missionTitleBefore &&
-    mission.lifecycleState === missionStateBefore;
+  const canonicalAfter = JSON.stringify(mission);
+  const test3Passed = canonicalBefore === canonicalAfter;
 
   results.push({
-    invariantName: 'Canonical Immutability Invariant: External Diff != Local Mutation',
+    invariantName: 'Canonical Immutability: destination observation != canonical mutation',
     passed: test3Passed,
-    jurisdictionA: 'Destination Reconciliation (OneStop ↔ CMR)',
-    verdictA: `${comparison.differences.length} Differences Detected`,
-    jurisdictionB: 'Canonical UxSMission Truth',
-    verdictB: 'State Unchanged & Preserved',
-    details: 'Verified that detecting differences between external destinations treats them as evidence without mutating canonical state.',
-    doesNotProveAudit: ['CANONICAL_MUTATION_ON_DIFF', 'AUTOMATIC_STEREOTYPE_OVERWRITE']
+    jurisdictionA: 'OneStop / CMR observations',
+    verdictA: `${comparison.differences.length} destination difference(s) observed`,
+    jurisdictionB: 'Canonical UxSMission',
+    verdictB: test3Passed ? 'UNCHANGED' : 'MUTATED',
+    details:
+      'Destination comparison is evidence-only. Differences may trigger review but cannot silently overwrite canonical mission meaning.',
+    doesNotProveAudit: ['CANONICAL_MUTATION', 'AUTOMATIC_EXTERNAL_OVERWRITE'],
   });
 
-  // TEST 4: Scoped Receipt Integrity
-  // Receipts must have valid non-empty doesNotProve arrays
+  // TEST 4: Every local readiness rule is explicitly grounded and the readiness
+  // receipt retains negative proof boundaries.
   const test4Passed =
-    oissHandoff.rules.every(r => r.evidenceRefs.length > 0) &&
-    oissHandoff.doesNotProve.length >= 3;
+    oissHandoff.rules.length > 0 &&
+    oissHandoff.rules.every(
+      (rule) =>
+        Boolean(rule.authority) &&
+        Boolean(rule.ruleGrounding) &&
+        rule.evidenceRefs.some((ref) => ref.startsWith('contract:'))
+    ) &&
+    oissHandoff.doesNotProve.length >= REQUIRED_EXTERNAL_OISS_BOUNDARIES.length;
 
   results.push({
-    invariantName: 'Scoped Receipt Integrity: Explicit Proof Boundaries',
+    invariantName: 'Scoped Receipt Integrity: rule grounding + doesNotProve',
     passed: test4Passed,
-    jurisdictionA: 'All System Evaluators',
-    verdictA: 'Scoped Receipts Emitted',
-    jurisdictionB: 'Transitive Proof Invariant',
-    verdictB: 'Strictly Bounded',
-    details: 'All preflight checks have explicit evidence references and negative proof boundaries (doesNotProve).',
-    doesNotProveAudit: oissHandoff.doesNotProve
+    jurisdictionA: 'MANTAS operational-contract evaluator',
+    verdictA: `${oissHandoff.rules.length} explicit rule(s)`,
+    jurisdictionB: 'Transitive proof boundary',
+    verdictB: 'BOUNDED',
+    details:
+      'Every OISS_HANDOFF rule has explicit authority/grounding and the resulting receipt states what it does not prove.',
+    doesNotProveAudit: oissHandoff.doesNotProve,
   });
 
   return {
     timestamp: new Date().toISOString(),
-    allPassed: results.every(r => r.passed),
-    results
+    allPassed: results.every((result) => result.passed),
+    results,
   };
 }

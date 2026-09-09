@@ -1,20 +1,24 @@
-import React, { useMemo, useState } from 'react';
-import { CheckCircle2, Clock, GitCompare, RefreshCw, AlertTriangle, ChevronRight } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronRight, GitCompare, Lock, RefreshCw } from 'lucide-react';
 import {
-  UxSMission,
-  DestinationObservation,
-  SemanticDifference,
   ComparisonState,
+  DestinationObservation,
   FreshnessState,
+  SemanticDifference,
+  UxSMission,
   WorkspaceSelection,
 } from '../types';
 import {
-  SEED_ONESTOP_OBSERVATION,
   SEED_CMR_OBSERVATION,
-  compareDestinationWithCanonical,
-  OFFICIAL_AUTHORITY_RECEIPTS,
+  SEED_ONESTOP_OBSERVATION,
 } from '../services/destinationReconciliationService';
+import { compareOperationalDestinationWithCanonical } from '../services/destinationOperationalInterpreter';
 import { runQaJurisdictionTests } from '../services/qaJurisdictionTest';
+import {
+  buildUniversalExpectedObserved,
+  deriveOperationalEvidenceMode,
+  invalidateDestinationObservationAfterCanonicalChange,
+} from '../services/nceiOperationalContractService';
 
 interface DestinationCompareProps {
   mission: UxSMission;
@@ -23,19 +27,65 @@ interface DestinationCompareProps {
   onNavigateTab?: (tab: string) => void;
 }
 
+const canonicalFingerprint = (mission: UxSMission) =>
+  JSON.stringify({
+    id: mission.id,
+    title: mission.title,
+    platform: mission.platform,
+    instruments: mission.instruments,
+    dateStart: mission.dateStart,
+    dateEnd: mission.dateEnd,
+    spatialExtent: mission.spatialExtent,
+    keywords: mission.keywords,
+    contact: mission.contact,
+    doi: mission.doi,
+  });
+
 export const DestinationCompare: React.FC<DestinationCompareProps> = ({
   mission,
   onSelectDifference,
   onNavigateTab,
 }) => {
-  const [oneStopObs, setOneStopObs] = useState<DestinationObservation | null>(SEED_ONESTOP_OBSERVATION);
+  // These are explicitly fixture observations until live OneStop / CMR adapters are connected.
+  const [oneStopObs, setOneStopObs] = useState<DestinationObservation | null>(
+    SEED_ONESTOP_OBSERVATION
+  );
   const [cmrObs, setCmrObs] = useState<DestinationObservation | null>(SEED_CMR_OBSERVATION);
   const [selectedDiff, setSelectedDiff] = useState<SemanticDifference | null>(null);
-  const [isReobserving, setIsReobserving] = useState(false);
+  const [reobserveNote, setReobserveNote] = useState<string | null>(null);
+  const previousCanonicalFingerprint = useRef(canonicalFingerprint(mission));
 
-  const oneStopResult = compareDestinationWithCanonical(mission, oneStopObs, 'OneStop');
-  const cmrResult = compareDestinationWithCanonical(mission, cmrObs, 'CMR');
+  const fingerprint = useMemo(() => canonicalFingerprint(mission), [mission]);
+
+  // Freshness invalidation is automatic: if accepted canonical meaning changes after
+  // an observation was captured, retain the observation but mark it STALE.
+  useEffect(() => {
+    if (previousCanonicalFingerprint.current !== fingerprint) {
+      const changedAt = new Date().toISOString();
+      setOneStopObs((current) =>
+        invalidateDestinationObservationAfterCanonicalChange(current, changedAt)
+      );
+      setCmrObs((current) =>
+        invalidateDestinationObservationAfterCanonicalChange(current, changedAt)
+      );
+      previousCanonicalFingerprint.current = fingerprint;
+      setReobserveNote(
+        'Canonical meaning changed. Existing destination observations were retained as evidence and marked stale.'
+      );
+    }
+  }, [fingerprint]);
+
+  const oneStopResult = compareOperationalDestinationWithCanonical(mission, oneStopObs, 'OneStop');
+  const cmrResult = compareOperationalDestinationWithCanonical(mission, cmrObs, 'CMR');
   const qaTestResults = runQaJurisdictionTests(mission);
+  const universalComparisons = buildUniversalExpectedObserved(mission, {
+    oneStopObservation: oneStopObs,
+    cmrObservation: cmrObs,
+  });
+
+  const oneStopMode = deriveOperationalEvidenceMode([oneStopObs]);
+  const cmrMode = deriveOperationalEvidenceMode([cmrObs]);
+  const hasLiveDestinationAdapter = oneStopMode === 'LIVE' || cmrMode === 'LIVE';
 
   const differences = useMemo(
     () => [
@@ -46,18 +96,16 @@ export const DestinationCompare: React.FC<DestinationCompareProps> = ({
   );
 
   const handleReobserve = () => {
-    setIsReobserving(true);
-    setTimeout(() => {
-      const observedAt = new Date().toISOString();
-      if (oneStopObs) setOneStopObs({ ...oneStopObs, freshness: 'CURRENT', observedAt });
-      if (cmrObs) setCmrObs({ ...cmrObs, freshness: 'CURRENT', observedAt });
-      setIsReobserving(false);
-    }, 600);
-  };
+    if (!hasLiveDestinationAdapter) {
+      setReobserveNote(
+        'OneStop and CMR are currently fixture observations. A live re-observe is not performed or simulated.'
+      );
+      return;
+    }
 
-  const markStale = () => {
-    if (oneStopObs) setOneStopObs({ ...oneStopObs, freshness: 'STALE' });
-    if (cmrObs) setCmrObs({ ...cmrObs, freshness: 'STALE' });
+    setReobserveNote(
+      'Live destination adapter hook is not connected in this surface yet; no observation was changed.'
+    );
   };
 
   const selectDifference = (diff: SemanticDifference) => {
@@ -66,63 +114,77 @@ export const DestinationCompare: React.FC<DestinationCompareProps> = ({
   };
 
   return (
-    <div id="destination-compare-surface" className="w-full h-full flex flex-col bg-[#050a12] text-slate-200 overflow-hidden font-sans">
-      <header className="px-6 py-5 border-b border-slate-900 flex items-center justify-between gap-4 shrink-0">
+    <div
+      id="destination-compare-surface"
+      className="w-full h-full flex flex-col bg-[#050a12] text-slate-200 overflow-hidden font-sans"
+    >
+      <header className="px-7 py-6 border-b border-slate-900 flex items-center justify-between gap-5 shrink-0">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <GitCompare className="w-4 h-4 text-cyan-400" />
             <span>Destination compare</span>
           </div>
-          <h2 className="mt-1 text-lg font-medium text-slate-100">OneStop ↔ CMR</h2>
-          <p className="mt-1 text-sm text-slate-500">Compare observed discovery records with the accepted mission meaning.</p>
+          <h2 className="mt-1 text-xl font-medium text-slate-100">Canonical ↔ OneStop ↔ CMR</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            External records are observations. They never overwrite accepted mission meaning.
+          </p>
         </div>
 
         <button
           onClick={handleReobserve}
-          disabled={isReobserving}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-cyan-300 hover:bg-cyan-950/25 disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-cyan-200 hover:bg-slate-900/60"
+          title={hasLiveDestinationAdapter ? 'Re-observe destinations' : 'Fixture mode: no live re-observe'}
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isReobserving ? 'animate-spin' : ''}`} />
-          {isReobserving ? 'Observing…' : 'Re-observe'}
+          <RefreshCw className="w-3.5 h-3.5" />
+          Re-observe
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="max-w-5xl mx-auto space-y-8">
-          <section className="space-y-3">
+      <div className="flex-1 overflow-y-auto px-7 py-7">
+        <div className="max-w-5xl mx-auto space-y-9">
+          <section className="space-y-1">
             <DestinationRow
               name="OneStop / OSIM"
+              mode={oneStopMode}
               state={oneStopResult.state}
               freshness={oneStopResult.freshness}
               matched={oneStopResult.matchedFieldsCount}
               tested={oneStopResult.testedFieldsCount}
               differences={oneStopResult.differences.length}
-              provenance={oneStopResult.provenanceType}
               recordIdentifier={oneStopResult.recordIdentifier}
             />
             <DestinationRow
               name="NOAA / NASA CMR"
+              mode={cmrMode}
               state={cmrResult.state}
               freshness={cmrResult.freshness}
               matched={cmrResult.matchedFieldsCount}
               tested={cmrResult.testedFieldsCount}
               differences={cmrResult.differences.length}
-              provenance={cmrResult.provenanceType}
               recordIdentifier={cmrResult.recordIdentifier}
             />
           </section>
 
+          {reobserveNote && (
+            <div className="flex items-start gap-2 border-l border-amber-700/50 pl-4 text-sm text-amber-200/80 leading-relaxed">
+              <Lock className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{reobserveNote}</span>
+            </div>
+          )}
+
           <section className="border-t border-slate-900 pt-7">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Differences</div>
-                <h3 className="mt-1 text-lg font-medium text-slate-100">{differences.length} observed differences</h3>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Observed drift</div>
+                <h3 className="mt-1 text-lg font-medium text-slate-100">
+                  {differences.length} difference{differences.length === 1 ? '' : 's'}
+                </h3>
               </div>
               <button
                 onClick={() => onNavigateTab?.('rosetta')}
                 className="text-xs text-cyan-300 hover:text-cyan-200 flex items-center gap-1"
               >
-                Rosetta
+                Explain with Rosetta
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -140,7 +202,7 @@ export const DestinationCompare: React.FC<DestinationCompareProps> = ({
                     <button
                       key={`${source}-${diff.id}`}
                       onClick={() => selectDifference(diff)}
-                      className={`w-full text-left py-4 transition-colors ${isSelected ? 'text-slate-100' : 'text-slate-300 hover:text-slate-100'}`}
+                      className="w-full text-left py-4 text-slate-300 hover:text-slate-100 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-5">
                         <div className="min-w-0">
@@ -168,45 +230,26 @@ export const DestinationCompare: React.FC<DestinationCompareProps> = ({
           </section>
 
           <details className="border-t border-slate-900 pt-6 text-sm text-slate-500">
-            <summary className="cursor-pointer hover:text-slate-300">Expected mission context</summary>
-            <div className="mt-5 pl-4 border-l border-slate-800 space-y-3">
-              <CalmRow label="Identifier" value={mission.doi || mission.id} />
-              <CalmRow label="Title" value={mission.title} />
-              <CalmRow label="Platform" value={mission.platform.name} />
-              <CalmRow label="Time" value={`${mission.dateStart} – ${mission.dateEnd}`} />
-            </div>
-          </details>
-
-          <details className="border-t border-slate-900 pt-6 text-sm text-slate-500">
-            <summary className="cursor-pointer hover:text-slate-300">Authority receipts and invariant tests</summary>
-            <div className="mt-5 space-y-5 pl-4 border-l border-slate-800">
-              <div className="text-sm text-slate-400 leading-relaxed">
-                A positive result is scoped to the authority that issued it. CoMET, OISS, archive, data QA, and discovery outcomes do not transfer to one another.
+            <summary className="cursor-pointer hover:text-slate-300">Operational contract</summary>
+            <div className="mt-5 pl-4 border-l border-slate-800 space-y-3 leading-relaxed">
+              <div>
+                Universal Expected ↔ Observed entries: <span className="text-slate-300">{universalComparisons.length}</span>
               </div>
-              <div className="space-y-3">
-                {OFFICIAL_AUTHORITY_RECEIPTS.map((receipt) => (
-                  <div key={receipt.id} className="grid grid-cols-[120px_1fr] gap-4 text-xs">
-                    <div className="text-slate-600">{receipt.authority}</div>
-                    <div>
-                      <div className="text-slate-300">{receipt.assertion}</div>
-                      <div className="mt-1 text-slate-600">Does not prove: {receipt.doesNotProve.join(', ')}</div>
-                    </div>
-                  </div>
-                ))}
+              <div>
+                QA jurisdiction suite:{' '}
+                <span className={qaTestResults.allPassed ? 'text-emerald-300' : 'text-rose-300'}>
+                  {qaTestResults.allPassed ? 'PASS' : 'REVIEW'}
+                </span>
               </div>
-              <div className="text-xs text-slate-500">
-                QA invariant suite: <span className={qaTestResults.allPassed ? 'text-emerald-300' : 'text-rose-300'}>{qaTestResults.allPassed ? 'PASS' : 'REVIEW'}</span>
+              <div>
+                Freshness rule: accepted canonical changes invalidate older destination observations without deleting them.
               </div>
-            </div>
-          </details>
-
-          <details className="border-t border-slate-900 pt-6 text-sm text-slate-500">
-            <summary className="cursor-pointer hover:text-slate-300">Demo freshness controls</summary>
-            <div className="mt-4 pl-4 border-l border-slate-800">
-              <button onClick={markStale} className="text-xs text-amber-300 hover:text-amber-200 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
-                Mark observations stale after a canonical change
-              </button>
+              <div>
+                Current destination mode: OneStop {oneStopMode} · CMR {cmrMode}.
+              </div>
+              <div>
+                Supported observation states: MATCH · MISMATCH · MISSING · EXTRA · NOT_TESTED · UNVERIFIABLE · STALE.
+              </div>
             </div>
           </details>
         </div>
@@ -217,29 +260,36 @@ export const DestinationCompare: React.FC<DestinationCompareProps> = ({
 
 const DestinationRow: React.FC<{
   name: string;
+  mode: string;
   state: ComparisonState;
   freshness?: FreshnessState;
   matched: number;
   tested: number;
   differences: number;
-  provenance: string;
   recordIdentifier?: string;
-}> = ({ name, state, freshness, matched, tested, differences, provenance, recordIdentifier }) => {
+}> = ({ name, mode, state, freshness, matched, tested, differences, recordIdentifier }) => {
   const stale = freshness === 'STALE';
   const stateClass = stale
     ? 'text-amber-300'
     : state === 'MATCH'
-    ? 'text-emerald-300'
-    : state === 'MISMATCH' || state === 'MISSING'
-    ? 'text-rose-300'
-    : 'text-slate-400';
+      ? 'text-emerald-300'
+      : state === 'MISMATCH' || state === 'MISSING'
+        ? 'text-rose-300'
+        : 'text-slate-400';
 
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-5 items-center py-4 border-b border-slate-900 last:border-b-0">
+    <div className="grid grid-cols-[1fr_auto] gap-5 items-center py-5 border-b border-slate-900 last:border-b-0">
       <div className="min-w-0">
-        <div className="text-base font-medium text-slate-100">{name}</div>
-        <div className="mt-1 text-xs text-slate-600 truncate" title={recordIdentifier}>{recordIdentifier || 'No record identifier observed'}</div>
-        <div className="mt-2 text-xs text-slate-500">{matched}/{tested} fields matched · {differences} differences · {provenance}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-base font-medium text-slate-100">{name}</div>
+          <span className="text-[9px] tracking-wider text-slate-500">{mode}</span>
+        </div>
+        <div className="mt-1 text-xs text-slate-600 truncate" title={recordIdentifier}>
+          {recordIdentifier || 'No record identifier observed'}
+        </div>
+        <div className="mt-2 text-xs text-slate-500">
+          {matched}/{tested} fields matched · {differences} differences
+        </div>
       </div>
       <div className={`text-xs font-medium ${stateClass}`}>{stale ? 'STALE' : state}</div>
     </div>
@@ -252,12 +302,5 @@ const ValueBlock: React.FC<{ label: string; value: any }> = ({ label, value }) =
     <div className="mt-1 text-sm text-slate-300 break-words leading-relaxed">
       {typeof value === 'object' ? JSON.stringify(value) : String(value)}
     </div>
-  </div>
-);
-
-const CalmRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div className="grid grid-cols-[100px_1fr] gap-4">
-    <div className="text-xs text-slate-600">{label}</div>
-    <div className="text-sm text-slate-300 leading-relaxed">{value}</div>
   </div>
 );

@@ -13,6 +13,7 @@ import {
   Claim,
   ObservedComponentReference,
   UxSMission,
+  WorkspaceSelection,
 } from '../types';
 import { SourceFirstIngestionPanel } from './corpus/SourceFirstIngestionPanel';
 import { CandidateIdentityQueuePanel } from './corpus/CandidateIdentityQueuePanel';
@@ -21,6 +22,7 @@ import { CorpusAuditHarnessPanel } from './corpus/CorpusAuditHarnessPanel';
 
 interface EvidenceWorkspaceProps {
   mission: UxSMission;
+  selection?: WorkspaceSelection;
   onAcceptClaim: (claimId: string, acceptedValue?: any) => void;
   onRejectClaim: (claimId: string, reason?: string) => void;
   onSelectDocucompRef: (ref: ObservedComponentReference) => void;
