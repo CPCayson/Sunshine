@@ -1,32 +1,15 @@
 import React, { useState } from 'react';
-import {
-  X,
-  Pin,
-  PinOff,
-  Layers,
-  Activity,
-  Languages,
-  Database,
-  Send,
-  MessageSquare,
-  FileCode,
-  CheckCircle2,
-  ChevronRight,
-  ShieldCheck,
-  Building,
-  Compass
-} from 'lucide-react';
+import { X, Layers, Compass, ChevronRight, MessageSquare } from 'lucide-react';
 import {
   ActiveWorkspaceTab,
   ChatMessage,
   UxSMission,
-  WorkspaceSelection
+  WorkspaceSelection,
 } from '../../types';
 import { ChatbotCompanion } from '../ChatbotCompanion';
 import { LiveXmlPreview } from '../LiveXmlPreview';
 import { CometOperationMode } from '../../services/cometAdapter';
 import { generateIso19115Xml } from '../../utils/xmlGenerator';
-import { CompactAccordion } from './CompactAccordion';
 import { KnowledgePassport } from './KnowledgePassport';
 
 interface GlobalLensProps {
@@ -42,6 +25,9 @@ interface GlobalLensProps {
   onSwitchWorkspaceTab: (tab: ActiveWorkspaceTab) => void;
 }
 
+type LensTab = 'overview' | 'passport' | 'inspect' | 'ask';
+type InspectMode = 'evidence' | 'signal' | 'rosetta' | 'xml';
+
 export const GlobalLens: React.FC<GlobalLensProps> = ({
   isOpen,
   onClose,
@@ -51,241 +37,192 @@ export const GlobalLens: React.FC<GlobalLensProps> = ({
   onSendMessage,
   isChatLoading,
   onApplySuggestedUpdates,
-  cometMode,
   onSwitchWorkspaceTab,
 }) => {
-  const [isPinned, setIsPinned] = useState(false);
-  const [activeTab, setActiveTab] = useState<'context' | 'passport' | 'evidence' | 'signal' | 'rosetta' | 'xml' | 'ask'>('context');
+  const [activeTab, setActiveTab] = useState<LensTab>('overview');
+  const [inspectMode, setInspectMode] = useState<InspectMode>('evidence');
 
   if (!isOpen) return null;
 
-  const tabs = [
-    { id: 'context', label: 'Context', icon: <Layers className="w-3.5 h-3.5" /> },
-    { id: 'passport', label: 'Passport', icon: <Compass className="w-3.5 h-3.5" /> },
-    { id: 'evidence', label: 'Evidence', icon: <Database className="w-3.5 h-3.5" /> },
-    { id: 'signal', label: 'Signal', icon: <Activity className="w-3.5 h-3.5" /> },
-    { id: 'rosetta', label: 'Rosetta', icon: <Languages className="w-3.5 h-3.5" /> },
-    { id: 'xml', label: 'ISO XML', icon: <FileCode className="w-3.5 h-3.5" /> },
-    { id: 'ask', label: 'Ask AI', icon: <MessageSquare className="w-3.5 h-3.5" /> },
-  ] as const;
+  const entityName = selection.entityName || mission.title;
+  const canonicalRef = selection.canonicalRef || mission.id;
+  const claims = mission.claims || [];
+  const unresolvedClaims = claims.filter((claim) => claim.state !== 'ACCEPTED' && claim.state !== 'REJECTED');
+
+  const tabs: Array<{ id: LensTab; label: string }> = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'passport', label: 'Passport' },
+    { id: 'inspect', label: 'Inspect' },
+    { id: 'ask', label: 'Ask' },
+  ];
+
+  const openWorkspace = (tab: ActiveWorkspaceTab) => {
+    onSwitchWorkspaceTab(tab);
+    onClose();
+  };
 
   return (
     <aside
       id="global-workbench-lens-slideover"
-      className="fixed top-11 right-0 bottom-0 w-full sm:w-[480px] md:w-[540px] lg:w-[45vw] bg-[#070e1d]/95 border-l border-cyan-500/30 backdrop-blur-xl flex flex-col z-50 shadow-2xl font-sans animate-in slide-in-from-right duration-200"
+      className="fixed top-12 right-0 bottom-0 w-full sm:w-[430px] bg-[#060b14]/98 border-l border-slate-800 flex flex-col z-50 shadow-xl font-sans animate-in slide-in-from-right duration-150"
     >
-      {/* Global Lens Header */}
-      <div className="bg-[#09152b] border-b border-cyan-500/20 px-4 py-2.5 flex items-center justify-between font-mono">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-          <span className="text-xs font-bold text-slate-100 uppercase tracking-wider">
-            GLOBAL CONTEXTUAL LENS
-          </span>
-          <span className="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-[#060c18] border border-slate-700">
-            {isPinned ? 'PINNED' : 'SLIDEOVER'}
-          </span>
+      <div className="h-14 px-5 border-b border-slate-800 flex items-center justify-between shrink-0">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Lens</span>
+          </div>
+          <div className="mt-0.5 text-sm font-medium text-slate-100 truncate max-w-[330px]" title={entityName}>
+            {entityName}
+          </div>
         </div>
+        <button
+          onClick={onClose}
+          className="p-2 rounded-md text-slate-500 hover:text-slate-200 hover:bg-slate-900/70"
+          title="Close Lens"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-        <div className="flex items-center gap-1">
+      <div className="px-5 border-b border-slate-900 flex items-center gap-5 shrink-0">
+        {tabs.map((tab) => (
           <button
-            onClick={() => setIsPinned(!isPinned)}
-            className={`p-1.5 rounded transition-colors ${
-              isPinned ? 'text-cyan-300 bg-[#0e244a]' : 'text-slate-400 hover:text-slate-200'
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`py-3 text-xs transition-colors border-b ${
+              activeTab === tab.id
+                ? 'text-cyan-200 border-cyan-400'
+                : 'text-slate-500 border-transparent hover:text-slate-300'
             }`}
-            title={isPinned ? 'Unpin Global Lens' : 'Pin Global Lens'}
           >
-            {isPinned ? <Pin className="w-3.5 h-3.5" /> : <PinOff className="w-3.5 h-3.5" />}
+            {tab.label}
           </button>
-
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-            title="Close Global Lens"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-0.5 px-3 pt-2 border-b border-slate-800 bg-[#050b18] overflow-x-auto no-scrollbar font-mono text-xs">
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-t transition-colors whitespace-nowrap ${
-                isActive
-                  ? 'bg-[#070e1d] text-cyan-300 border-t border-x border-cyan-500/30 font-semibold'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
-              }`}
-            >
-              <span>{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      <div className="flex-1 min-h-0 bg-[#050a12]">
+        {activeTab === 'overview' && (
+          <div className="h-full overflow-y-auto px-6 py-7">
+            <div className="max-w-sm space-y-7">
+              <section>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Selected</div>
+                <div className="mt-2 text-xl font-medium text-slate-100 leading-snug">{entityName}</div>
+                <div className="mt-2 text-xs font-mono text-slate-500 break-all">{canonicalRef}</div>
+              </section>
 
-      {/* Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-[#060b16]">
-        {/* TAB: CONTEXT / CROSS-PANE SELECTION */}
-        {activeTab === 'context' && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-xs">
-            <div className="p-3 bg-[#09152b] border border-cyan-500/30 rounded-xl space-y-2">
-              <div className="text-[10px] uppercase font-bold text-cyan-400">Current Cross-Pane Focus</div>
-              <div className="text-sm font-sans font-bold text-slate-100">
-                {selection.entityName || mission.title}
-              </div>
-              <div className="text-[11px] text-slate-400">
-                Canonical Ref: <code className="text-cyan-300">{selection.canonicalRef || mission.id}</code>
-              </div>
-            </div>
+              <section className="space-y-4 border-t border-slate-900 pt-6">
+                <CalmRow label="Mission" value={mission.alternateTitle || mission.id} />
+                <CalmRow label="Platform" value={mission.platform.name} />
+                <CalmRow label="Time" value={`${mission.dateStart} – ${mission.dateEnd}`} />
+                <CalmRow label="Place" value={mission.spatialExtent.placeName || 'Spatial extent available'} />
+                <CalmRow label="Claims needing review" value={String(unresolvedClaims.length)} />
+              </section>
 
-            <div className="space-y-1">
-              <CompactAccordion title="Canonical Platform" primaryValue={mission.platform.name} badge={{ label: 'PROVEN', variant: 'emerald' }} defaultExpanded>
-                <div className="space-y-1 text-slate-400">
-                  <div>Model ID: <strong className="text-slate-200">{mission.platform.modelId || 'REMUS-620'}</strong></div>
-                  <div>Category: <strong className="text-slate-200">{mission.platform.uxsCategory}</strong></div>
-                  <div>Callsign: <strong className="text-slate-200">{mission.platform.callSign}</strong></div>
-                </div>
-              </CompactAccordion>
-
-              <CompactAccordion title="SpatioTemporal Coordinates" primaryValue={mission.spatialExtent.placeName} badge={{ label: 'CORRIDOR', variant: 'cyan' }}>
-                <div className="space-y-1 text-slate-400">
-                  <div>Dates: <span className="text-slate-200">{mission.dateStart} to {mission.dateEnd}</span></div>
-                  <div>Coordinates: <span className="text-slate-200">[{mission.spatialExtent.west}°, {mission.spatialExtent.south}°] to [{mission.spatialExtent.east}°, {mission.spatialExtent.north}°]</span></div>
-                </div>
-              </CompactAccordion>
-
-              <CompactAccordion title="Authority & Lineage" primaryValue={mission.contact.organization} badge={{ label: 'NOAA NCEI', variant: 'purple' }}>
-                <div className="space-y-1 text-slate-400">
-                  <div>Lead: <span className="text-slate-200">{mission.contact.name} ({mission.contact.email})</span></div>
-                  <div>DocuComp Profile: <span className="text-cyan-300">MANTAS DocuComp Slot Profile — Provisional</span></div>
-                </div>
-              </CompactAccordion>
+              <section className="border-t border-slate-900 pt-6">
+                <button
+                  onClick={() => setActiveTab('passport')}
+                  className="flex items-center gap-2 text-sm text-cyan-300 hover:text-cyan-200"
+                >
+                  <Compass className="w-4 h-4" />
+                  Open knowledge passport
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </section>
             </div>
           </div>
         )}
 
-        {/* TAB: KNOWLEDGE PASSPORT */}
         {activeTab === 'passport' && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="h-full overflow-y-auto p-5">
             <KnowledgePassport
               selection={selection}
               mission={mission}
-              onNavigateTab={(tab) => {
-                onSwitchWorkspaceTab(tab);
-                onClose();
-              }}
+              onNavigateTab={(tab) => openWorkspace(tab)}
             />
           </div>
         )}
 
-        {/* TAB: EVIDENCE */}
-        {activeTab === 'evidence' && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-xs">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-800">
-              <span className="text-slate-300 font-bold">Candidate Claims ({(mission.claims || []).length})</span>
-              <button
-                onClick={() => onSwitchWorkspaceTab('evidence')}
-                className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
+        {activeTab === 'inspect' && (
+          <div className="h-full flex flex-col min-h-0">
+            <div className="px-5 py-4 border-b border-slate-900 shrink-0">
+              <label className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Inspect</label>
+              <select
+                value={inspectMode}
+                onChange={(e) => setInspectMode(e.target.value as InspectMode)}
+                className="mt-2 w-full bg-[#09111d] border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-800"
               >
-                <span>Open Evidence Workspace</span>
-                <ChevronRight className="w-3 h-3" />
-              </button>
+                <option value="evidence">Evidence</option>
+                <option value="signal">Signal</option>
+                <option value="rosetta">Rosetta</option>
+                <option value="xml">ISO XML</option>
+              </select>
             </div>
 
-            {(mission.claims || []).map((claim) => (
-              <div key={claim.id} className="p-3 bg-[#081122] border border-slate-800 rounded-lg space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-cyan-400 font-semibold text-[11px]">{claim.predicate}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${claim.state === 'CONFLICT' ? 'bg-rose-950 text-rose-300' : 'bg-cyan-950 text-cyan-300'}`}>
-                    {claim.state}
-                  </span>
+            {inspectMode === 'evidence' && (
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                <div>
+                  <div className="text-lg font-medium text-slate-100">{claims.length} claims</div>
+                  <div className="mt-1 text-sm text-slate-500">{unresolvedClaims.length} still need review.</div>
                 </div>
-                <div className="text-slate-200 font-sans font-medium text-xs">
-                  {claim.subject} → <strong className="text-emerald-300">{String(claim.objectValue)}</strong>
+                <div className="space-y-4">
+                  {unresolvedClaims.slice(0, 4).map((claim) => (
+                    <div key={claim.id} className="border-t border-slate-900 pt-4 first:border-t-0 first:pt-0">
+                      <div className="text-xs text-slate-500">{claim.predicate} · {claim.state}</div>
+                      <div className="mt-1 text-sm text-slate-200 leading-relaxed">
+                        {claim.subject} → {String(claim.objectValue)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-[10px] text-slate-500">
-                  Obs: {claim.sources?.[0]?.id || 'direct'} · Confidence: {Math.round((claim.confidence || 0.8) * 100)}%
-                </div>
+                <TextAction label="Open Evidence" onClick={() => openWorkspace('evidence')} />
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {/* TAB: SIGNAL */}
-        {activeTab === 'signal' && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-xs">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-800">
-              <span className="text-slate-300 font-bold">Signal Assurance Engine</span>
-              <button
-                onClick={() => onSwitchWorkspaceTab('signal')}
-                className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
-              >
-                <span>Open Signal Tab</span>
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-
-            <div className="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-xl space-y-1">
-              <div className="font-bold text-emerald-300 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Conformance Score: {mission.conformanceScore}%</span>
+            {inspectMode === 'signal' && (
+              <div className="flex-1 overflow-y-auto px-6 py-7">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-600">Local assurance</div>
+                <div className="mt-2 text-3xl font-medium text-slate-100">{mission.conformanceScore ?? '—'}%</div>
+                <div className="mt-2 text-sm text-slate-500 leading-relaxed">
+                  Open Signal for rule-level evidence, impact, and remediation.
+                </div>
+                <div className="mt-7"><TextAction label="Open Signal" onClick={() => openWorkspace('signal')} /></div>
               </div>
-              <p className="text-slate-300 text-[11px] font-sans">
-                ISO 19115-2 profile valid with 0 critical syntax errors. All provisional slot mappings evaluated.
-              </p>
-            </div>
+            )}
+
+            {inspectMode === 'rosetta' && (
+              <div className="flex-1 overflow-y-auto px-6 py-7">
+                <div className="text-lg font-medium text-slate-100">Cross-authority mapping</div>
+                <div className="mt-5 space-y-4 text-sm">
+                  <CalmRow label="Mission title" value="Canonical → ISO title → discovery title" />
+                  <CalmRow label="Platform" value="Canonical platform → ISO platform → projected fields" />
+                  <CalmRow label="Extent" value="Canonical geometry → ISO / STAC / DCAT" />
+                </div>
+                <div className="mt-7"><TextAction label="Open Rosetta" onClick={() => openWorkspace('rosetta')} /></div>
+              </div>
+            )}
+
+            {inspectMode === 'xml' && (
+              <div className="flex-1 min-h-0 flex flex-col">
+                <LiveXmlPreview
+                  xmlContent={generateIso19115Xml(mission)}
+                  onExportXml={() => {
+                    const blob = new Blob([generateIso19115Xml(mission)], { type: 'application/xml;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${mission.id}_ISO19115.xml`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 
-        {/* TAB: ROSETTA */}
-        {activeTab === 'rosetta' && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-xs">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-800">
-              <span className="text-slate-300 font-bold">Rosetta Schema Crosswalk</span>
-              <button
-                onClick={() => onSwitchWorkspaceTab('rosetta')}
-                className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1"
-              >
-                <span>Full Crosswalk Table</span>
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            </div>
-
-            <div className="p-3 bg-[#081224] rounded-xl border border-slate-800 space-y-2 text-[11px]">
-              <div><span className="text-slate-400">Mission Title:</span> <span className="text-cyan-300">gmd:identificationInfo//gmd:title</span></div>
-              <div><span className="text-slate-400">Platform Model:</span> <span className="text-emerald-300">gmi:MI_Platform/gmi:description</span></div>
-              <div><span className="text-slate-400">Instrument Array:</span> <span className="text-amber-300">gmi:MI_Instrument/gmi:type</span></div>
-              <div><span className="text-slate-400">STAC Coordinates:</span> <span className="text-purple-300">geometry.coordinates [Polygon]</span></div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB: ISO XML PREVIEW */}
-        {activeTab === 'xml' && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <LiveXmlPreview
-              xmlContent={generateIso19115Xml(mission)}
-              onExportXml={() => {
-                const blob = new Blob([generateIso19115Xml(mission)], { type: 'application/xml;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${mission.id}_ISO19115.xml`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-              }}
-            />
-          </div>
-        )}
-
-        {/* TAB: ASK AI */}
         {activeTab === 'ask' && (
           <ChatbotCompanion
             messages={chatMessages}
@@ -299,3 +236,17 @@ export const GlobalLens: React.FC<GlobalLensProps> = ({
     </aside>
   );
 };
+
+const CalmRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div className="grid grid-cols-[110px_1fr] gap-4 items-start">
+    <div className="text-xs text-slate-600">{label}</div>
+    <div className="text-sm text-slate-300 leading-relaxed break-words">{value}</div>
+  </div>
+);
+
+const TextAction: React.FC<{ label: string; onClick: () => void }> = ({ label, onClick }) => (
+  <button onClick={onClick} className="flex items-center gap-1.5 text-sm text-cyan-300 hover:text-cyan-200">
+    {label}
+    <ChevronRight className="w-3.5 h-3.5" />
+  </button>
+);
