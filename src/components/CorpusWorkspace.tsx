@@ -15,8 +15,12 @@ import {
   VerifiedUxSAssetRecord,
   buildKnowledgeKeyCandidate,
 } from '../data/verifiedNoaaCorpus';
+import {
+  getSourceBackedRelationshipAssessment,
+  runVerifiedCorpusInvariantAudit,
+} from '../services/verifiedCorpusAdapter';
 
-type CorpusView = 'CATALOG' | 'PASSPORT' | 'EVIDENCE';
+type CorpusView = 'CATALOG' | 'PASSPORT' | 'EVIDENCE' | 'RELATIONSHIPS';
 
 interface CorpusWorkspaceProps {
   onClose?: () => void;
@@ -30,9 +34,15 @@ const statusClass = (status?: string) => {
 };
 
 const maturityLabel = (record: VerifiedUxSAssetRecord) => {
-  if (record.payloadEvidence) return 'CONFIGURATION EVIDENCE';
+  if (record.payloadEvidence) return 'PAYLOAD MENTION EVIDENCE';
   if (record.missionContext) return 'USE-CONTEXT EVIDENCE';
   return 'IDENTITY EVIDENCE';
+};
+
+const relationshipStateClass = (state: string) => {
+  if (state === 'SUPPORTED_BY_SOURCE_ROW') return 'border-emerald-700/40 bg-emerald-950/20 text-emerald-300';
+  if (state === 'SOURCE_MENTION_ONLY') return 'border-amber-700/40 bg-amber-950/20 text-amber-300';
+  return 'border-slate-700 bg-slate-900/30 text-slate-400';
 };
 
 export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => {
@@ -63,6 +73,8 @@ export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => 
   }, [query, classFilter]);
 
   const selected = VERIFIED_NOAA_UXS_CORPUS.find((r) => r.id === selectedId) || filtered[0];
+  const relationshipAssessment = selected ? getSourceBackedRelationshipAssessment(selected) : [];
+  const corpusAudit = useMemo(() => runVerifiedCorpusInvariantAudit(), []);
 
   return (
     <div className="fixed inset-0 z-[90] bg-[#02050b]/95 backdrop-blur-xl text-slate-100 flex flex-col">
@@ -77,6 +89,9 @@ export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => 
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <span className={`px-2 py-1 rounded border text-[10px] font-mono ${corpusAudit.passed ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-300' : 'border-rose-500/30 bg-rose-950/30 text-rose-300'}`}>
+            CORPUS TRUTH AUDIT {corpusAudit.passed ? 'PASS' : 'REVIEW'}
+          </span>
           <span className="px-2 py-1 rounded border border-amber-500/30 bg-amber-950/30 text-amber-300 text-[10px] font-mono">IMPORTED_ARTIFACT</span>
           {onClose && (
             <button onClick={onClose} className="p-2 rounded-lg border border-slate-800 hover:border-slate-600 hover:bg-slate-900" title="Close corpus workspace">
@@ -87,7 +102,7 @@ export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => 
       </header>
 
       <div className="h-11 shrink-0 border-b border-slate-800 px-5 flex items-center gap-2 bg-[#060d18]">
-        {(['CATALOG', 'PASSPORT', 'EVIDENCE'] as CorpusView[]).map((item) => (
+        {(['CATALOG', 'PASSPORT', 'EVIDENCE', 'RELATIONSHIPS'] as CorpusView[]).map((item) => (
           <button
             key={item}
             onClick={() => setView(item)}
@@ -202,7 +217,7 @@ export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => 
               <div className="p-4 rounded-xl border border-cyan-800/40 bg-cyan-950/15">
                 <div className="text-[10px] text-slate-500 font-mono">KNOWLEDGE KEY CANDIDATE</div>
                 <div className="mt-2 font-mono text-sm text-cyan-300 break-all">{buildKnowledgeKeyCandidate(selected)}</div>
-                <div className="mt-3 text-xs text-slate-400">This is a semantic address candidate derived from the source-backed identity. It does not erase the external source identifier and should only become an accepted binding through the existing reconciliation/decision flow.</div>
+                <div className="mt-3 text-xs text-slate-400">This is a semantic address candidate derived from source-backed identity. It remains a candidate until the existing reconciliation / HumanDecision flow accepts it.</div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <InfoCell label="Source identity state" value={selected.identityState} />
@@ -216,11 +231,11 @@ export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => 
                 <AlertTriangle className="w-4 h-4 text-amber-300 mt-0.5" />
                 <div>
                   <div className="text-xs font-semibold text-amber-200">Identity is not a deployment claim</div>
-                  <div className="text-xs text-slate-400 mt-1">The imported registry can support asset/model identity and configuration-ish evidence where explicitly recorded. It cannot by itself establish that a named sensor was carried on a specific dive or produced a dataset.</div>
+                  <div className="text-xs text-slate-400 mt-1">The imported registry supports asset/model identity and recorded context where present. It cannot by itself establish a specific dive, serialized sensor use, or dataset production.</div>
                 </div>
               </div>
             </div>
-          ) : (
+          ) : view === 'EVIDENCE' ? (
             <div className="p-6 max-w-5xl mx-auto space-y-5">
               <div>
                 <div className="text-[10px] uppercase tracking-widest text-cyan-500 font-mono">Evidence tree</div>
@@ -230,8 +245,47 @@ export const CorpusWorkspace: React.FC<CorpusWorkspaceProps> = ({ onClose }) => 
                 <EvidenceStep icon={<Database className="w-4 h-4" />} title="Imported source artifact" value={selected.sourceArtifact} detail="The workbook remains evidence; it is not a second canonical database." />
                 <EvidenceStep icon={<Anchor className="w-4 h-4" />} title="Source row identity" value={selected.sourceRef} detail={`Identity basis: ${selected.identityBasis} · confidence ${selected.confidence.toFixed(2)}`} />
                 <EvidenceStep icon={<GitBranch className="w-4 h-4" />} title="Candidate semantic binding" value={buildKnowledgeKeyCandidate(selected)} detail="Candidate Knowledge Key. Existing HumanDecision / claim machinery owns acceptance." />
-                <EvidenceStep icon={<ShieldCheck className="w-4 h-4" />} title="Authority boundary" value="IMPORTED_ARTIFACT" detail="This observation can support only the fields actually present in the source row. Downstream OISS, archive, CoMET, OneStop, and CMR outcomes remain separate authorities." />
+                <EvidenceStep icon={<ShieldCheck className="w-4 h-4" />} title="Authority boundary" value="IMPORTED_ARTIFACT" detail="This observation can support only the fields actually present in the source row. OISS, archive, CoMET, OneStop and CMR outcomes remain separate authorities." />
               </div>
+            </div>
+          ) : (
+            <div className="p-6 max-w-6xl mx-auto space-y-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest text-cyan-500 font-mono">Relationship evidence boundary</div>
+                  <h2 className="text-xl font-semibold mt-1">What this row can establish</h2>
+                  <div className="text-xs text-slate-500 mt-1">{selected.sourceRef} · {selected.manufacturer} {selected.model}</div>
+                </div>
+                <span className="px-2 py-1 rounded border border-slate-700 bg-slate-900/40 text-[10px] font-mono text-slate-300">NO TRANSITIVE GREEN LIGHTS</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {relationshipAssessment.map((assessment) => (
+                  <div key={assessment.predicate} className={`rounded-xl border p-4 ${relationshipStateClass(assessment.state)}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-mono text-xs font-bold">{assessment.predicate}</div>
+                      <span className="text-[9px] font-mono opacity-80">{assessment.state}</span>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-300 leading-relaxed">{assessment.explanation}</div>
+                    <div className="mt-3 text-[10px] text-slate-500 font-mono">Evidence: {assessment.evidenceRefs.join(', ')}</div>
+                  </div>
+                ))}
+              </div>
+
+              <section className="border-t border-slate-800 pt-4">
+                <div className="text-[10px] uppercase tracking-widest text-slate-500 font-mono">Corpus invariant audit</div>
+                <div className="mt-3 space-y-2">
+                  {corpusAudit.checks.map((check) => (
+                    <div key={check.id} className="flex items-start gap-3 p-3 rounded-lg border border-slate-800 bg-[#07101c]">
+                      {check.passed ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" /> : <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />}
+                      <div>
+                        <div className="text-[10px] font-mono font-bold text-slate-300">{check.id}</div>
+                        <div className="text-xs text-slate-400 mt-1">{check.explanation}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             </div>
           )}
         </main>
