@@ -1,222 +1,97 @@
-import React, { useState } from 'react';
-import {
-  Layers,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
-  Shield,
-  FileCheck,
-  ChevronRight,
-  Database,
-  ExternalLink,
-  ArrowRight,
-  Sparkles,
-  Search,
-  Sliders
-} from 'lucide-react';
-import { CapabilityEvidenceLevel, CapabilityMaturityRecord } from '../../types';
-import { getCapabilityMaturity } from '../../services/identityResolutionService';
+import React, { useMemo, useState } from 'react';
+import { AlertTriangle, CheckCircle2, CircleDashed, Layers, ShieldCheck } from 'lucide-react';
+import { VERIFIED_NOAA_UXS_CORPUS } from '../../data/verifiedNoaaCorpus';
+import { getSourceBackedRelationshipAssessment } from '../../services/verifiedCorpusAdapter';
+
+const stateClass = (state: string) => {
+  if (state === 'SUPPORTED_BY_SOURCE_ROW') return 'border-emerald-700/40 bg-emerald-950/20 text-emerald-300';
+  if (state === 'SOURCE_MENTION_ONLY') return 'border-amber-700/40 bg-amber-950/20 text-amber-300';
+  return 'border-slate-700 bg-[#060c18] text-slate-400';
+};
 
 export const CapabilityMaturityMatrixPanel: React.FC = () => {
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('plat-asset-6401');
-  const [selectedInstrument, setSelectedInstrument] = useState<string>('inst-model-minsas');
+  const [selectedId, setSelectedId] = useState(VERIFIED_NOAA_UXS_CORPUS[0]?.id || '');
+  const selected = VERIFIED_NOAA_UXS_CORPUS.find((record) => record.id === selectedId) || VERIFIED_NOAA_UXS_CORPUS[0];
+  const assessments = useMemo(() => selected ? getSourceBackedRelationshipAssessment(selected) : [], [selected]);
+  const maturity = assessments.filter((item) => ['CAN_CARRY', 'CONFIGURED_WITH', 'CARRIED', 'PRODUCED'].includes(item.predicate));
 
-  const platforms = [
-    { id: 'plat-asset-6401', name: 'REMUS 620 Hull #6401 (NOAA OMAO)', model: 'REMUS-620' },
-    { id: 'plat-model-remus620', name: 'REMUS 620 Model Specification (Archetype)', model: 'REMUS-620' },
-    { id: 'plat-conflict-6012', name: 'REMUS 600 Chassis #6012 (Synthetic Draft)', model: 'REMUS-600' }
-  ];
-
-  const instruments = [
-    { id: 'inst-model-minsas', name: 'Kraken MINSAS-120 SAS (Aperture Sonar)', type: 'Sonar' },
-    { id: 'inst-model-voyis', name: 'Voyis Insight Pro (Optical/Laser)', type: 'Optical/Laser' },
-    { id: 'inst-model-multibeam', name: 'Norbit iWBMSh Multibeam (Bathymetry)', type: 'Bathymetry' }
-  ];
-
-  const maturityRecord = getCapabilityMaturity(selectedPlatform, selectedInstrument) || {
-    id: `cap-mat-${selectedPlatform}-${selectedInstrument}`,
-    platformModelId: selectedPlatform,
-    platformModelName: selectedPlatform,
-    instrumentModelId: selectedInstrument,
-    instrumentModelName: selectedInstrument,
-    potential: { supported: true, authority: 'Provider Specification', evidenceRef: 'art-remus620-spec' },
-    configured: { supported: true, authority: 'NOAA UxS Fleet Inventory CY2025', evidenceRef: 'art-fleet-inventory' },
-    deployed: { supported: true, authority: 'Cruise Operations Log', evidenceRef: 'art-cruise-report' },
-    dataProven: { supported: true, authority: 'NCEI Ocean Archive Accession', evidenceRef: 'art-ncei-dataset' },
-    overallMaturity: 'DATA_PROVEN' as CapabilityEvidenceLevel,
-    explanation: 'Full multi-hop evidence chain corroborated from provider datasheet to archived NCEI data granules.'
-  };
-
-  const currentLevel: CapabilityEvidenceLevel = maturityRecord.overallMaturity;
-
-  const getStageColor = (supported: boolean, isOverall: boolean) => {
-    if (isOverall) return 'bg-cyan-500/20 border-cyan-400 text-cyan-200 ring-2 ring-cyan-500/40';
-    if (supported) return 'bg-emerald-950/40 border-emerald-500/60 text-emerald-200';
-    return 'bg-[#060c18] border-slate-800 text-slate-500';
-  };
-
-  const evidenceStages = [
-    {
-      level: 'STAGE 1: POTENTIAL',
-      name: 'POTENTIAL',
-      predicate: 'CAN_CARRY',
-      spec: maturityRecord.potential,
-      desc: 'Engineering payload capability from manufacturer specifications or CAD payload bays.',
-      artifactName: 'Manufacturer Specification / User Manual'
-    },
-    {
-      level: 'STAGE 2: CONFIGURED',
-      name: 'CONFIGURED',
-      predicate: 'CONFIGURED_WITH',
-      spec: maturityRecord.configured,
-      desc: 'Chassis installation or deck configuration verified in physical fleet inventory records.',
-      artifactName: 'NOAA UxS Fleet Inventory CY2025'
-    },
-    {
-      level: 'STAGE 3: DEPLOYED',
-      name: 'DEPLOYED',
-      predicate: 'CARRIED',
-      spec: maturityRecord.deployed,
-      desc: 'Underway active sortie or dive execution corroborated by mission navigation track logs.',
-      artifactName: 'Cruise Operations Log (EN2501 DIVE-01)'
-    },
-    {
-      level: 'STAGE 4: DATA-PROVEN',
-      name: 'DATA_PROVEN',
-      predicate: 'PRODUCED',
-      spec: maturityRecord.dataProven,
-      desc: 'Archived science dataset with checksummed granules published in national repository.',
-      artifactName: 'NCEI Bathymetric & Acoustic Archive'
-    }
-  ];
+  if (!selected) return <div className="p-6 text-slate-500">No verified corpus records are loaded.</div>;
 
   return (
-    <div id="capability-maturity-matrix-panel" className="flex-1 flex flex-col overflow-y-auto p-6 bg-[#060b14] font-mono text-xs space-y-6">
-      {/* Header & Concept Explanation */}
-      <div className="bg-[#081224] p-4 rounded-xl border border-cyan-500/20 flex flex-wrap items-center justify-between gap-4">
+    <div id="capability-maturity-matrix-panel" className="flex-1 overflow-y-auto p-6 bg-[#060b14] font-mono text-xs text-slate-200 space-y-5">
+      <div className="p-4 rounded-xl border border-amber-700/40 bg-amber-950/15 flex gap-3">
+        <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-300 shrink-0" />
         <div>
-          <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-cyan-400" />
-            <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
-              CAPABILITY MATURITY MATRIX & EVIDENCE CHAIN
-            </h3>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1">
-            Separates engineering capability claims ("Could it?") from underway operational reality ("Did it?") and verified science products ("Where is the data?").
+          <div className="font-bold text-amber-200">LEGACY DATA_PROVEN DEMO QUARANTINED</div>
+          <p className="mt-1 text-slate-400 leading-relaxed">
+            This surface no longer uses the old seeded provider specification, EN2501 dive log, or archive-manifest fixtures as real evidence. Maturity is now limited to what the imported fused-registry row actually establishes.
           </p>
         </div>
-
-        {/* Platform & Instrument Selectors */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <label className="text-[10px] text-slate-400 block mb-0.5">Platform Target:</label>
-            <select
-              value={selectedPlatform}
-              onChange={(e) => setSelectedPlatform(e.target.value)}
-              className="p-1.5 bg-[#050a14] border border-slate-700 rounded text-slate-200 text-xs"
-            >
-              {platforms.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-[10px] text-slate-400 block mb-0.5">Instrument / Sensor Target:</label>
-            <select
-              value={selectedInstrument}
-              onChange={(e) => setSelectedInstrument(e.target.value)}
-              className="p-1.5 bg-[#050a14] border border-slate-700 rounded text-slate-200 text-xs"
-            >
-              {instruments.map((i) => (
-                <option key={i.id} value={i.id}>{i.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
       </div>
 
-      {/* 4-Stage Maturity Pipeline Visualization */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <span className="font-bold text-slate-200">Maturity Progression Ladder:</span>
-          <span>Current Achieved Level: <strong className="text-cyan-400">{currentLevel}</strong></span>
+      <div className="p-4 rounded-xl border border-cyan-500/20 bg-[#081224] flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-cyan-400" />
+            <span className="font-bold tracking-wider">CAPABILITY EVIDENCE MATURITY</span>
+          </div>
+          <div className="mt-1 text-[11px] text-slate-400">COULD ≠ CONFIGURED ≠ DEPLOYED ≠ PRODUCED</div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {evidenceStages.map((stg, i) => {
-            const isAchieved = stg.spec?.supported ?? false;
-            const isCurrent = currentLevel === stg.name;
-
-            return (
-              <div
-                key={i}
-                className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${getStageColor(
-                  isAchieved,
-                  isCurrent
-                )}`}
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400 font-bold">{stg.level}</span>
-                    <span className="px-1.5 py-0.5 rounded bg-black/40 text-cyan-300 text-[10px] border border-slate-700 font-mono">
-                      {stg.predicate}
-                    </span>
-                  </div>
-                  <div className="text-sm font-bold text-slate-100">{stg.name}</div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed">
-                    {stg.desc}
-                  </p>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-slate-800 text-[10px] text-slate-400 space-y-1">
-                  <div>Evidence: <strong className="text-slate-300">{stg.artifactName}</strong></div>
-                  <div>Status: <span className={isAchieved ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
-                    {isAchieved ? '✓ CORROBORATED' : '✗ NOT OBSERVED'}
-                  </span></div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <label className="space-y-1 min-w-[280px]">
+          <span className="text-slate-500">Source-backed asset</span>
+          <select value={selected.id} onChange={(e) => setSelectedId(e.target.value)} className="w-full p-2 bg-[#050a14] border border-slate-700 rounded text-slate-200">
+            {VERIFIED_NOAA_UXS_CORPUS.map((record) => (
+              <option key={record.id} value={record.id}>
+                {record.manufacturer} {record.model} {record.serialOrIdentifier ? `#${record.serialOrIdentifier}` : record.cdNumber || ''}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      {/* Concrete Evidence Chain Breakdown */}
-      <div className="p-4 bg-[#081224] rounded-xl border border-slate-800 space-y-3">
-        <div className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-          <FileCheck className="w-4 h-4 text-cyan-400" />
-          <span>Lineage & Grounded Explanation</span>
-        </div>
-
-        <div className="p-3 bg-[#050b16] rounded-lg border border-slate-800/80 text-slate-300 leading-relaxed text-xs">
-          {maturityRecord.explanation}
-        </div>
-
-        <div className="space-y-2">
-          {evidenceStages.map((stg, idx) => (
-            <div
-              key={idx}
-              className="p-3 bg-[#050b16] rounded-lg border border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-2"
-            >
-              <div className="flex items-start gap-2">
-                <span className="w-5 h-5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 flex items-center justify-center text-[10px] font-bold shrink-0">
-                  {idx + 1}
-                </span>
-                <div>
-                  <div className="font-bold text-slate-200">{stg.level}: {stg.spec?.authority || 'Corpus Record'}</div>
-                  <div className="text-[11px] text-slate-400">Excerpt: {stg.spec?.excerpt || stg.desc}</div>
-                </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        {maturity.map((assessment, index) => {
+          const labels = ['POTENTIAL', 'CONFIGURED', 'DEPLOYED', 'DATA_PROVEN'];
+          const supported = assessment.state === 'SUPPORTED_BY_SOURCE_ROW';
+          const mentioned = assessment.state === 'SOURCE_MENTION_ONLY';
+          return (
+            <div key={assessment.predicate} className={`rounded-xl border p-4 ${stateClass(assessment.state)}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] text-slate-500">STAGE {index + 1}</span>
+                {supported ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <CircleDashed className={`w-4 h-4 ${mentioned ? 'text-amber-400' : 'text-slate-600'}`} />}
               </div>
-
-              <div className="flex items-center gap-3 text-[11px] shrink-0">
-                <span className="text-slate-500 font-mono">Ref: {stg.spec?.evidenceRef || 'corpus-ref'}</span>
-                <span className={`px-2 py-0.5 rounded border ${stg.spec?.supported ? 'bg-emerald-950 text-emerald-300 border-emerald-800' : 'bg-slate-900 text-slate-400 border-slate-700'}`}>
-                  {stg.spec?.supported ? 'VERIFIED' : 'UNSUPPORTED'}
-                </span>
+              <div className="mt-2 text-sm font-bold text-slate-100">{labels[index]}</div>
+              <div className="mt-1 text-cyan-300 font-bold">{assessment.predicate}</div>
+              <div className="mt-3 text-[10px] font-bold">{assessment.state}</div>
+              <p className="mt-2 text-[11px] text-slate-400 leading-relaxed">{assessment.explanation}</p>
+              <div className="mt-3 pt-2 border-t border-slate-800 text-[10px] text-slate-500 break-all">
+                Evidence: {assessment.evidenceRefs.join(', ')}
               </div>
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="p-4 rounded-xl border border-slate-800 bg-[#07101c] space-y-2">
+          <div className="font-bold text-slate-100">SOURCE-OBSERVED CONTEXT</div>
+          <div><span className="text-slate-500">Asset:</span> {selected.manufacturer} {selected.model} {selected.serialOrIdentifier || selected.cdNumber || ''}</div>
+          <div><span className="text-slate-500">Use context:</span> {selected.missionContext || 'UNKNOWN'}</div>
+          <div><span className="text-slate-500">Payload text:</span> {selected.payloadEvidence || 'NONE IN SOURCE ROW'}</div>
+          <div><span className="text-slate-500">Provenance:</span> <span className="text-amber-300">{selected.provenanceType}</span></div>
         </div>
+
+        <div className="p-4 rounded-xl border border-slate-800 bg-[#07101c] space-y-2">
+          <div className="font-bold text-slate-100">WHAT IS STILL NEEDED</div>
+          <div className="text-[11px] text-slate-400 leading-relaxed">
+            <strong className="text-slate-200">CAN_CARRY</strong> needs provider/manufacturer specification evidence. <strong className="text-slate-200">CONFIGURED_WITH</strong> needs a physical configuration record tied to an instrument instance. <strong className="text-slate-200">CARRIED</strong> needs bounded mission/deployment evidence. <strong className="text-slate-200">PRODUCED</strong> needs dataset lineage from an instrument instance.
+          </div>
+        </div>
+      </div>
+
+      <div className="p-3 rounded-lg border border-emerald-800/30 bg-emerald-950/10 flex gap-2 text-slate-400">
+        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span>No stage becomes green because another stage is green. Provider capability, configuration, deployment, and data lineage remain independently scoped.</span>
       </div>
     </div>
   );
