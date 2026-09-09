@@ -1,0 +1,104 @@
+{
+  "profileMetadata": {
+    "profileId": "MANTAS-DOCUCOMP-SLOT-PROFILE-PROVISIONAL",
+    "version": "0.9.0-PROVISIONAL",
+    "title": "MANTAS DocuComp Slot Profile — Provisional",
+    "authority": "PROVISIONAL",
+    "source": "MANTAS working interpretation",
+    "reviewStatus": "NEEDS_NOAA_REVIEW",
+    "lastUpdated": "2026-09-08",
+    "description": "Provisional MANTAS working interpretation defining ISO 19139 / 19115-2 XPath slots for DocuComp component roles. Rules with explicit NOAA documentation are AUTHORITATIVE (producing SUPPORTED or CONFLICT); locally derived or working-group proposals are PROVISIONAL (producing SUGGESTION or UNRESOLVED, not definitive CONFLICT), awaiting formal NOAA review."
+  },
+  "rules": [
+    {
+      "ruleId": "RULE-DOCUCOMP-ROLE-CONTACT",
+      "componentRole": "pointOfContact",
+      "allowedSlots": [
+        "gmd:contact",
+        "gmd:identificationInfo/gmd:MD_DataIdentification/gmd:pointOfContact",
+        "gmi:MI_Metadata/gmd:contact",
+        "gmd:identificationInfo/*/gmd:pointOfContact"
+      ],
+      "authority": "NOAA NCEI DocuComp User Guide",
+      "source": "Docucomp User Guide v4.9.0 §ResponsibleParty Slots",
+      "version": "4.9.0",
+      "status": "AUTHORITATIVE",
+      "description": "Authoritative: pointOfContact ResponsibleParty components are permitted in metadata contact and identification pointOfContact slots."
+    },
+    {
+      "ruleId": "RULE-DOCUCOMP-ROLE-THESAURUS",
+      "componentRole": "thesaurus",
+      "allowedSlots": [
+        "gmd:descriptiveKeywords/gmd:MD_Keywords/gmd:thesaurusName",
+        "gmd:identificationInfo/*/gmd:descriptiveKeywords/gmd:MD_Keywords/gmd:thesaurusName"
+      ],
+      "authority": "NOAA NCEI DocuComp User Guide",
+      "source": "Docucomp User Guide v4.9.0 §Thesaurus Citation Slots",
+      "version": "4.9.0",
+      "status": "AUTHORITATIVE",
+      "description": "Authoritative: Thesaurus citation components are only valid within MD_Keywords thesaurusName slots."
+    },
+    {
+      "ruleId": "RULE-DOCUCOMP-ROLE-CONSTRAINT",
+      "componentRole": "constraint",
+      "allowedSlots": [
+        "gmd:resourceConstraints",
+        "gmd:resourceConstraints/gmd:MD_LegalConstraints",
+        "gmd:identificationInfo/*/gmd:resourceConstraints"
+      ],
+      "authority": "NOAA NCEI DocuComp User Guide",
+      "source": "Docucomp User Guide v4.9.0 §LegalConstraints Slots",
+      "version": "4.9.0",
+      "status": "AUTHORITATIVE",
+      "description": "Authoritative: Legal and security constraints components belong in resourceConstraints slots."
+    },
+    {
+      "ruleId": "RULE-DOCUCOMP-ROLE-DISTRIBUTION-CONTACT",
+      "componentRole": "distributionContact",
+      "allowedSlots": [
+        "gmd:distributionInfo/gmd:MD_Distribution/gmd:distributor/gmd:MD_Distributor/gmd:distributorContact"
+      ],
+      "authority": "NOAA NCEI CoMET Best Practices",
+      "source": "CoMET User Guide v1.14.8 §Distributor",
+      "version": "1.14.8",
+      "status": "AUTHORITATIVE",
+      "description": "Authoritative: Distribution contacts are scoped to MD_Distributor distributorContact."
+    },
+    {
+      "ruleId": "RULE-DOCUCOMP-ROLE-PLATFORM",
+      "componentRole": "platformDefinition",
+      "allowedSlots": [
+        "gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:platform",
+        "gmi:platform"
+      ],
+      "authority": "NOAA UxS Profile Working Group",
+      "source": "NOAA UxS-Marine-Core v1.0 §Platform Component Inclusion",
+      "version": "1.0.0-PROVISIONAL",
+      "status": "PROVISIONAL",
+      "description": "Provisional: UxS platform definitions placed into gmi:platform. Pending formal NOAA DocuComp catalog registration."
+    },
+    {
+      "ruleId": "RULE-DOCUCOMP-ROLE-INSTRUMENT",
+      "componentRole": "instrumentDefinition",
+      "allowedSlots": [
+        "gmi:acquisitionInformation/gmi:MI_AcquisitionInformation/gmi:platform/gmi:MI_Platform/gmi:instrument",
+        "gmi:instrument"
+      ],
+      "authority": "NOAA UxS Profile Working Group",
+      "source": "NOAA UxS-Marine-Core v1.0 §Instrument Slots",
+      "version": "1.0.0-PROVISIONAL",
+      "status": "PROVISIONAL",
+      "description": "Provisional: Sensor payloads placed into platform instrument slots."
+    },
+    {
+      "ruleId": "RULE-DOCUCOMP-ROLE-OTHER",
+      "componentRole": "other",
+      "allowedSlots": [],
+      "authority": "Unassigned",
+      "source": "N/A",
+      "version": "0.0.0",
+      "status": "UNRESOLVED",
+      "description": "Unresolved: Components without typed semantic role require explicit metadata curator assignment."
+    }
+  ]
+}
