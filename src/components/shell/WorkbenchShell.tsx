@@ -1,22 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   UxSMission,
   ActiveWorkspaceTab,
   ChatMessage,
   FederatedSearchResult,
-  PaneId,
-  PaneFocusMode,
-  WorkspaceSelection
+  WorkspaceSelection,
 } from '../../types';
 import { CompactCommandHeader } from './CompactCommandHeader';
 import { FocusPane } from './FocusPane';
-import { FocusSeam } from './FocusSeam';
-import { CollapsedPaneDock } from './CollapsedPaneDock';
 import { GlobalLens } from './GlobalLens';
 import { MantaScriptCanvas, MantasScriptMode } from './MantaScriptCanvas';
+import { WorkbenchRightRail } from './WorkbenchRightRail';
 import { CometOperationMode } from '../../services/cometAdapter';
 
-// Workspaces
 import { MantasSearch } from '../MantasSearch';
 import { CharlieIntakeWorkspace } from '../CharlieIntakeWorkspace';
 import { MetadataForm } from '../MetadataForm';
@@ -24,12 +20,14 @@ import { EvidenceWorkspace } from '../EvidenceWorkspace';
 import { MissionGraph } from '../MissionGraph';
 import { SignalAssurance } from '../SignalAssurance';
 import { RosettaViewer } from '../RosettaViewer';
-import { ProjectionsWorkspace } from '../ProjectionsWorkspace';
+import { ProjectionFormat, ProjectionsWorkspace } from '../ProjectionsWorkspace';
 import { CometAdapterWorkspace } from '../CometAdapterWorkspace';
 import { DestinationCompare } from '../DestinationCompare';
 import { InteractiveOceanMap } from '../InteractiveOceanMap';
 import { UxSDataLifecycle } from '../UxSDataLifecycle';
 import { KnowledgeTreeProjection } from '../KnowledgeTreeProjection';
+import { ConstellationWorkspace } from '../ConstellationWorkspace';
+import { buildKnowledgeKeyCandidate, VerifiedUxSAssetRecord } from '../../data/verifiedNoaaCorpus';
 import { CheckCircle2 } from 'lucide-react';
 
 interface WorkbenchShellProps {
@@ -70,52 +68,37 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
   toast,
   showToast,
 }) => {
-  // Active Workspaces in Two Panes
+  // One dominant canvas. The old bottom companion pane is intentionally retired.
   const [primaryTab, setPrimaryTab] = useState<ActiveWorkspaceTab>('graph');
-  const [secondaryTab, setSecondaryTab] = useState<ActiveWorkspaceTab>('map');
+  // Retained as lightweight context for MANTAScript and legacy pair actions, but never rendered below the canvas.
+  const [companionTab, setCompanionTab] = useState<ActiveWorkspaceTab>('map');
+  const [projectionFormat, setProjectionFormat] = useState<ProjectionFormat>('ISO');
 
-  // Shared Workspace Selection State
   const [selection, setSelection] = useState<WorkspaceSelection>({
     canonicalRef: mission.id,
     entityName: mission.platform.name,
     entityType: 'PLATFORM',
   });
 
-  // Pane Focus & Layout State
-  const [focusMode, setFocusMode] = useState<PaneFocusMode>('BALANCED');
-  const [activePane, setActivePane] = useState<PaneId>('PRIMARY');
-  const [splitRatio, setSplitRatio] = useState<number>(55); // Primary % in balanced mode
-
-  // Slide-over Stack State
   const [isGlobalLensOpen, setIsGlobalLensOpen] = useState(false);
   const [isMantasScriptOpen, setIsMantasScriptOpen] = useState(false);
   const [mantasScriptInitialMode, setMantasScriptInitialMode] = useState<MantasScriptMode>('SCRIPT');
 
-  // Corpus selections use the same WorkspaceSelection contract as every other workbench surface.
-  // The corpus remains a source-evidence overlay; selecting an imported record does not mutate UxsMission.
   React.useEffect(() => {
     const handleCorpusSelection = (event: Event) => {
       const detail = (event as CustomEvent<CorpusSelectionEventDetail>).detail;
       if (!detail?.selection) return;
-
       setSelection(detail.selection);
       showToast(`Corpus selection: ${detail.selection.entityName || detail.selection.graphNodeId || 'source-backed asset'}`);
-
-      if (detail.openGraph) {
-        setPrimaryTab('graph');
-        setActivePane('PRIMARY');
-        setFocusMode('PRIMARY_FOCUSED');
-      }
+      if (detail.openGraph) setPrimaryTab('graph');
     };
 
     window.addEventListener('manta:corpus-selection', handleCorpusSelection as EventListener);
     return () => window.removeEventListener('manta:corpus-selection', handleCorpusSelection as EventListener);
   }, [showToast]);
 
-  // Keyboard Shortcuts (Cmd+K, Cmd+/, Shift+1, Shift+2, Esc)
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is currently typing in an input or textarea
       if (
         ['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName) &&
         !((e.metaKey || e.ctrlKey) && e.key === 'k')
@@ -132,19 +115,8 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
         setMantasScriptInitialMode('SEARCH');
         setIsMantasScriptOpen(true);
       } else if (e.key === 'Escape') {
-        if (isMantasScriptOpen) {
-          setIsMantasScriptOpen(false);
-        } else if (isGlobalLensOpen) {
-          setIsGlobalLensOpen(false);
-        }
-      } else if (e.shiftKey && e.key === '!' && !isMantasScriptOpen) {
-        // Shift + 1
-        e.preventDefault();
-        handleFocusPane('PRIMARY');
-      } else if (e.shiftKey && e.key === '@' && !isMantasScriptOpen) {
-        // Shift + 2
-        e.preventDefault();
-        handleFocusPane('SECONDARY');
+        if (isMantasScriptOpen) setIsMantasScriptOpen(false);
+        else if (isGlobalLensOpen) setIsGlobalLensOpen(false);
       }
     };
 
@@ -152,101 +124,38 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMantasScriptOpen, isGlobalLensOpen]);
 
-  // Meaningful Activation Handlers (NOT triggered on hover)
-  const handleActivatePane = (id: PaneId) => {
-    setActivePane(id);
-    if (id === 'SECONDARY' && focusMode === 'PRIMARY_FOCUSED') {
-      setFocusMode('SECONDARY_FOCUSED');
-    } else if (id === 'PRIMARY' && focusMode === 'SECONDARY_FOCUSED') {
-      setFocusMode('PRIMARY_FOCUSED');
-    }
+  const openWorkspace = (tab: ActiveWorkspaceTab) => {
+    setPrimaryTab(tab);
   };
 
-  const handleFocusPane = (id: PaneId) => {
-    setActivePane(id);
-    if (id === 'PRIMARY') {
-      setFocusMode('PRIMARY_FOCUSED');
-    } else {
-      setFocusMode('SECONDARY_FOCUSED');
-    }
+  const openProjection = (format: ProjectionFormat) => {
+    setProjectionFormat(format);
+    setPrimaryTab('projections');
   };
 
-  const handleMaximizeToggle = (id: PaneId) => {
-    if (id === 'PRIMARY') {
-      setFocusMode((prev) => (prev === 'PRIMARY_MAXIMIZED' ? 'BALANCED' : 'PRIMARY_MAXIMIZED'));
-    } else {
-      setFocusMode((prev) => (prev === 'SECONDARY_MAXIMIZED' ? 'BALANCED' : 'SECONDARY_MAXIMIZED'));
-    }
+  const selectCorpusRecord = (record: VerifiedUxSAssetRecord) => {
+    setSelection({
+      graphNodeId: `corpus-asset-${record.id}`,
+      sourceObservationId: `corpus-observation-${record.id}`,
+      canonicalRef: buildKnowledgeKeyCandidate(record),
+      entityName: `${record.manufacturer} ${record.model}${record.serialOrIdentifier ? ` #${record.serialOrIdentifier}` : ''}`,
+      entityType: 'physicalAsset',
+    });
   };
 
-  const handleSwapPanes = () => {
-    setPrimaryTab(secondaryTab);
-    setSecondaryTab(primaryTab);
-    showToast(`Swapped: ${secondaryTab.toUpperCase()} (Top) ↔ ${primaryTab.toUpperCase()} (Bottom)`);
-  };
-
-  // Seam Drag Resizing
-  const handleDragStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startRatio = splitRatio;
-    const containerHeight = window.innerHeight - 44; // minus header
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const deltaY = moveEvent.clientY - startY;
-      const deltaPercent = (deltaY / containerHeight) * 100;
-      const newRatio = Math.max(20, Math.min(80, startRatio + deltaPercent));
-      setSplitRatio(newRatio);
-      setFocusMode('BALANCED');
-    };
-
-    const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-  };
-
-  // Calculate Pane Heights based on focusMode
-  const getPaneHeights = (): { primary: number; secondary: number } => {
-    switch (focusMode) {
-      case 'PRIMARY_FOCUSED':
-        return { primary: 88, secondary: 12 };
-      case 'SECONDARY_FOCUSED':
-        return { primary: 12, secondary: 88 };
-      case 'PRIMARY_MAXIMIZED':
-        return { primary: 100, secondary: 0 };
-      case 'SECONDARY_MAXIMIZED':
-        return { primary: 0, secondary: 100 };
-      case 'BALANCED':
-      default:
-        return { primary: splitRatio, secondary: 100 - splitRatio };
-    }
-  };
-
-  const heights = getPaneHeights();
-
-  // Non-destructive CLEAN command executor
   const handleCleanView = () => {
-    setFocusMode('BALANCED');
-    setSplitRatio(55);
-    showToast('Cleaned Surface: Collapsed resolved elements and normalized workbench layout.');
+    setIsGlobalLensOpen(false);
+    showToast('Calm surface restored. Main canvas remains primary; technical companions stay in the right rail.');
   };
 
-  // Render individual workspace inside a given pane
-  const renderWorkspace = (tab: ActiveWorkspaceTab, pane: PaneId) => {
+  const renderWorkspace = (tab: ActiveWorkspaceTab) => {
     switch (tab) {
       case 'lifecycle':
         return (
           <UxSDataLifecycle
             mission={mission}
             onUpdateMission={setMission}
-            onNavigateTab={(dest) => {
-              if (pane === 'PRIMARY') setPrimaryTab(dest);
-              else setSecondaryTab(dest);
-            }}
+            onNavigateTab={openWorkspace}
             onSelectNode={(sel) => setSelection(sel)}
           />
         );
@@ -260,10 +169,7 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
               setMission((prev) => ({ ...prev, ...partial }));
               showToast('Loaded candidate mission attributes into workspace.');
             }}
-            onSwitchTab={(newTab) => {
-              if (pane === 'PRIMARY') setPrimaryTab(newTab);
-              else setSecondaryTab(newTab);
-            }}
+            onSwitchTab={openWorkspace}
           />
         );
 
@@ -289,12 +195,9 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
             }}
             onAcceptAllCandidates={(updatedPartial) => {
               setMission((prev) => ({ ...prev, ...updatedPartial }));
-              showToast('Batch accepted all candidate claims into UxsMission canonical model!');
+              showToast('Batch accepted candidate claims into UxsMission canonical model.');
             }}
-            onJumpToSignal={() => {
-              setSecondaryTab('signal');
-              setFocusMode('SECONDARY_FOCUSED');
-            }}
+            onJumpToSignal={() => openWorkspace('signal')}
           />
         );
 
@@ -303,13 +206,8 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
           <MetadataForm
             mission={mission}
             onChangeMission={setMission}
-            onAskAiAboutField={(field, val) => {
-              setIsGlobalLensOpen(true);
-            }}
-            onValidateNow={() => {
-              setSecondaryTab('signal');
-              setFocusMode('SECONDARY_FOCUSED');
-            }}
+            onAskAiAboutField={() => setIsGlobalLensOpen(true)}
+            onValidateNow={() => openWorkspace('signal')}
           />
         );
 
@@ -335,10 +233,7 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
         return (
           <MissionGraph
             mission={mission}
-            onNavigateTab={(dest) => {
-              setSecondaryTab(dest);
-              setFocusMode('BALANCED');
-            }}
+            onNavigateTab={openWorkspace}
             onSelectNodeInLens={(node) => {
               setSelection({
                 graphNodeId: node.id,
@@ -347,6 +242,15 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
                 canonicalRef: node.canonicalRef,
               });
             }}
+          />
+        );
+
+      case 'constellation':
+        return (
+          <ConstellationWorkspace
+            selection={selection}
+            onSelectRecord={selectCorpusRecord}
+            onOpenGraph={() => openWorkspace('graph')}
           />
         );
 
@@ -375,10 +279,7 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
           <SignalAssurance
             mission={mission}
             onApplyRemediation={onApplySignalRemediation}
-            onSwitchTab={(dest) => {
-              if (pane === 'PRIMARY') setPrimaryTab(dest);
-              else setSecondaryTab(dest);
-            }}
+            onSwitchTab={openWorkspace}
           />
         );
 
@@ -398,15 +299,18 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
               });
               setIsGlobalLensOpen(true);
             }}
-            onNavigateTab={(dest) => {
-              if (pane === 'PRIMARY') setPrimaryTab(dest);
-              else setSecondaryTab(dest);
-            }}
+            onNavigateTab={openWorkspace}
           />
         );
 
       case 'projections':
-        return <ProjectionsWorkspace mission={mission} />;
+        return (
+          <ProjectionsWorkspace
+            mission={mission}
+            requestedFormat={projectionFormat}
+            onFormatChange={setProjectionFormat}
+          />
+        );
 
       case 'destination-compare':
         return (
@@ -421,10 +325,7 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
                 canonicalRef: diff.canonicalRef,
               });
             }}
-            onNavigateTab={(tab) => {
-              if (pane === 'PRIMARY') setPrimaryTab(tab as ActiveWorkspaceTab);
-              else setSecondaryTab(tab as ActiveWorkspaceTab);
-            }}
+            onNavigateTab={(nextTab) => openWorkspace(nextTab as ActiveWorkspaceTab)}
           />
         );
 
@@ -440,7 +341,7 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
       default:
         return (
           <div className="h-full flex items-center justify-center font-mono text-slate-500 text-xs">
-            Select a workspace for this pane
+            Select a workspace
           </div>
         );
     }
@@ -448,11 +349,10 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#050b16] text-slate-100 font-sans select-none">
-      {/* 1. Compact Command Header */}
       <CompactCommandHeader
         mission={mission}
         activePrimaryTab={primaryTab}
-        activeSecondaryTab={secondaryTab}
+        activeSecondaryTab={companionTab}
         selection={selection}
         onOpenMantasScript={(mode) => {
           setMantasScriptInitialMode(mode || 'SCRIPT');
@@ -461,112 +361,52 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
         onToggleGlobalLens={() => setIsGlobalLensOpen((prev) => !prev)}
         isGlobalLensOpen={isGlobalLensOpen}
         onSelectTab={(tab, targetPane = 'PRIMARY') => {
-          if (targetPane === 'PRIMARY') {
-            setPrimaryTab(tab);
-          } else {
-            setSecondaryTab(tab);
-          }
+          if (targetPane === 'SECONDARY') setCompanionTab(tab);
+          openWorkspace(tab);
         }}
         onLaunchEn2501Demo={() => {
-          setPrimaryTab('destination-compare');
-          setSecondaryTab('lifecycle');
-          setFocusMode('BALANCED');
-          setSplitRatio(52);
-          showToast('EN2501 Flagship Demo: Paired Destination Compare with UxS Lifecycle & OISS Hand-off Profile.');
+          setPrimaryTab('constellation');
+          setCompanionTab('destination-compare');
+          showToast('EN2501 flagship: opened evidence-backed Constellation. Destination Compare remains available from the right rail.');
         }}
       />
 
-      {/* Notification Toast */}
       {toast && (
-        <div className="fixed top-14 right-4 z-50 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0e1c31] border border-cyan-400 text-xs font-mono text-cyan-200 shadow-2xl shadow-cyan-950/80">
+        <div className="fixed top-14 right-28 z-50 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#0e1c31] border border-cyan-400/50 text-xs font-mono text-cyan-200">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{toast.message}</span>
           </div>
         </div>
       )}
 
-      {/* 2. Main Spatial Workbench (Two Focus Panes + Seam) */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        {/* TOP PANE: Expanded or Collapsed Dock */}
-        {focusMode === 'SECONDARY_FOCUSED' ? (
-          <CollapsedPaneDock
-            paneId="PRIMARY"
-            viewName={primaryTab}
-            selection={selection}
-            position="TOP"
-            findingCount={3}
-            onRestore={() => setFocusMode('BALANCED')}
-            onMaximize={() => setFocusMode('PRIMARY_MAXIMIZED')}
-          />
-        ) : heights.primary > 0 ? (
+      <main className="flex-1 flex overflow-hidden relative">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <FocusPane
             id="PRIMARY"
-            title={`Top Pane · ${primaryTab.toUpperCase()}`}
+            title={primaryTab.toUpperCase()}
             activeTab={primaryTab}
-            isFocused={activePane === 'PRIMARY'}
-            isMaximized={focusMode === 'PRIMARY_MAXIMIZED'}
-            heightPercent={heights.primary}
+            isFocused
+            isMaximized
+            heightPercent={100}
             mission={mission}
             selection={selection}
-            onActivate={() => handleActivatePane('PRIMARY')}
-            onMaximizeToggle={() => handleMaximizeToggle('PRIMARY')}
-            onSwitchTab={setPrimaryTab}
-            onSuggestCompanion={(companionTab) => {
-              setSecondaryTab(companionTab);
-              setFocusMode('BALANCED');
-            }}
+            onActivate={() => undefined}
+            onMaximizeToggle={() => undefined}
+            onSwitchTab={openWorkspace}
           >
-            {renderWorkspace(primaryTab, 'PRIMARY')}
+            {renderWorkspace(primaryTab)}
           </FocusPane>
-        ) : null}
+        </div>
 
-        {/* DRAGGABLE FOCUS SEAM (Visible when both panes exist) */}
-        {heights.primary > 0 && heights.secondary > 0 && focusMode !== 'PRIMARY_FOCUSED' && focusMode !== 'SECONDARY_FOCUSED' && (
-          <FocusSeam
-            onDragStart={handleDragStart}
-            onDoubleClick={() => {
-              setSplitRatio(55);
-              setFocusMode('BALANCED');
-            }}
-            onSwapPanes={handleSwapPanes}
-            onFocusPrimary={() => handleFocusPane('PRIMARY')}
-            onFocusSecondary={() => handleFocusPane('SECONDARY')}
-            focusMode={focusMode}
-          />
-        )}
-
-        {/* BOTTOM PANE: Expanded or Collapsed Dock */}
-        {focusMode === 'PRIMARY_FOCUSED' ? (
-          <CollapsedPaneDock
-            paneId="SECONDARY"
-            viewName={secondaryTab}
-            selection={selection}
-            position="BOTTOM"
-            findingCount={0}
-            onRestore={() => setFocusMode('BALANCED')}
-            onMaximize={() => setFocusMode('SECONDARY_MAXIMIZED')}
-          />
-        ) : heights.secondary > 0 ? (
-          <FocusPane
-            id="SECONDARY"
-            title={`Bottom Pane · ${secondaryTab.toUpperCase()}`}
-            activeTab={secondaryTab}
-            isFocused={activePane === 'SECONDARY'}
-            isMaximized={focusMode === 'SECONDARY_MAXIMIZED'}
-            heightPercent={heights.secondary}
-            mission={mission}
-            selection={selection}
-            onActivate={() => handleActivatePane('SECONDARY')}
-            onMaximizeToggle={() => handleMaximizeToggle('SECONDARY')}
-            onSwitchTab={setSecondaryTab}
-          >
-            {renderWorkspace(secondaryTab, 'SECONDARY')}
-          </FocusPane>
-        ) : null}
+        <WorkbenchRightRail
+          activeWorkspace={primaryTab}
+          activeProjectionFormat={projectionFormat}
+          onOpenProjection={openProjection}
+          onOpenWorkspace={openWorkspace}
+        />
       </main>
 
-      {/* 3. Global Lens Slide-over (Covers 40-55% of Workbench, can be pinned) */}
       <GlobalLens
         isOpen={isGlobalLensOpen}
         onClose={() => setIsGlobalLensOpen(false)}
@@ -578,12 +418,11 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
         onApplySuggestedUpdates={onApplySuggestedUpdates}
         cometMode={cometMode}
         onSwitchWorkspaceTab={(dest) => {
-          setPrimaryTab(dest);
+          openWorkspace(dest);
           setIsGlobalLensOpen(false);
         }}
       />
 
-      {/* 4. Full-Surface MANTAScript Canvas (Covers Entire Surface) */}
       <MantaScriptCanvas
         isOpen={isMantasScriptOpen}
         onClose={() => setIsMantasScriptOpen(false)}
@@ -591,16 +430,17 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
         mission={mission}
         selection={selection}
         activePrimaryTab={primaryTab}
-        activeSecondaryTab={secondaryTab}
+        activeSecondaryTab={companionTab}
         onExecuteCommand={(cmd) => {
           if (cmd === 'CLEAN') {
             handleCleanView();
           } else if (cmd === 'SWAP_PANES') {
-            handleSwapPanes();
-          } else if (cmd === 'FOCUS_PRIMARY') {
-            handleFocusPane('PRIMARY');
-          } else if (cmd === 'FOCUS_SECONDARY') {
-            handleFocusPane('SECONDARY');
+            const current = primaryTab;
+            setPrimaryTab(companionTab);
+            setCompanionTab(current);
+            showToast('Swapped main workspace with saved companion context.');
+          } else if (cmd === 'FOCUS_PRIMARY' || cmd === 'FOCUS_SECONDARY') {
+            showToast('Single-canvas mode is active. Open companions from the right rail.');
           } else {
             showToast(`Executed MANTAScript: ${cmd}`);
           }
@@ -610,13 +450,13 @@ export const WorkbenchShell: React.FC<WorkbenchShellProps> = ({
           setPrimaryTab('search');
         }}
         onOpenWorkspaceBelow={(tab) => {
-          setSecondaryTab(tab);
-          setFocusMode('BALANCED');
-          showToast(`Opened ${tab.toUpperCase()} in bottom companion surface`);
+          setCompanionTab(tab);
+          setPrimaryTab(tab);
+          showToast(`Opened ${tab.toUpperCase()} in the main canvas; bottom pane is retired.`);
         }}
         onSelectPrimaryWorkspace={(tab) => {
           setPrimaryTab(tab);
-          showToast(`Focused ${tab.toUpperCase()} in primary workspace`);
+          showToast(`Focused ${tab.toUpperCase()} in main workspace`);
         }}
       />
     </div>
