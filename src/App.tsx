@@ -4,7 +4,8 @@ import {
   ChatMessage,
   FederatedSearchResult,
   Claim,
-  SignalFinding
+  SignalFinding,
+  SourceObservation,
 } from './types';
 import { INITIAL_MISSIONS } from './data/missions';
 import { generateIso19115Xml, validateUxSMission } from './utils/xmlGenerator';
@@ -20,7 +21,6 @@ export default function App() {
   const [isCorpusOpen, setIsCorpusOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
-  // Initial welcome message from MANTA Lens AI
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome-1',
@@ -49,11 +49,9 @@ export default function App() {
   ]);
   const [isChatLoading, setIsChatLoading] = useState(false);
 
-  // Derive live XML and validation issues from canonical mission state
   const liveXml = useMemo(() => generateIso19115Xml(mission), [mission]);
   const { score } = useMemo(() => validateUxSMission(mission), [mission]);
 
-  // Keep mission conformance score in sync with calculated score
   React.useEffect(() => {
     if (mission.conformanceScore !== score) {
       setMission((prev) => ({ ...prev, conformanceScore: score }));
@@ -65,7 +63,6 @@ export default function App() {
     setTimeout(() => setToast(null), 4500);
   };
 
-  // Send message to Gemini Chatbot with Search Grounding
   const handleSendMessage = async (text: string, modelChoice: string) => {
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -116,28 +113,34 @@ export default function App() {
     }
   };
 
-  // Pull search result as evidence into the claims workspace
+  // A search pull records only what the source literally exposed. It does not
+  // assert configuration/deployment truth and it does not carry a magic trust score.
   const handlePullAsEvidence = (result: FederatedSearchResult) => {
-    const newSource = {
+    const newSource: SourceObservation = {
       id: `source-obs-${Date.now()}`,
       authority: result.authority,
       sourceUri: result.identifier,
       sourceTitle: `${result.authority}: ${result.title}`,
       observedAt: new Date().toISOString(),
-      rawPayloadFragment: result.rawFragment,
+      rawFragment: result.rawFragment,
       documentExcerpt: result.subtitle || result.title,
-      reliabilityScore: 0.9,
+      // This value is extraction fidelity for a literal captured source record,
+      // not truth/canonical confidence. Human acceptance is still required.
+      reliabilityScore: 1,
     };
 
+    const observedValue = result.metadataSummary.platform || result.title;
     const newClaim: Claim = {
       id: `claim-pulled-${Date.now()}`,
-      subject: result.metadataSummary.platform || 'UxS Platform / Instrument',
-      predicate: 'CONFIGURED_WITH',
-      objectValue: result.metadataSummary.platform || result.title,
-      confidence: 0.88,
+      subject: result.metadataSummary.platform || result.title || 'Discovery source observation',
+      predicate: 'OBSERVED_IN_SOURCE',
+      objectValue: observedValue,
+      // 1.0 means the displayed value was copied literally from this source
+      // observation. It does not mean the fact is accepted or authoritative.
+      confidence: 1,
       state: 'OBSERVED',
       sources: [newSource],
-      whyExplanation: `Extracted from federated query against ${result.authority}. Pending human review.`,
+      whyExplanation: `Literal source extraction from ${result.authority}; confidence describes extraction fidelity only. Pending human reconciliation and acceptance.`,
     };
 
     setMission((prev) => ({
@@ -146,10 +149,9 @@ export default function App() {
       claims: [...(prev.claims || []), newClaim],
     }));
 
-    showToast(`Pulled evidence from ${result.authority} into Claims queue.`);
+    showToast(`Pulled observed evidence from ${result.authority}; canonical mission unchanged.`);
   };
 
-  // Human decision on candidate claim
   const handleAcceptClaim = (claimId: string, acceptedValue?: any) => {
     setMission((prev) => {
       const updatedClaims = (prev.claims || []).map((c) => {
@@ -165,7 +167,7 @@ export default function App() {
         return c;
       });
 
-      let updatedPlatform = { ...prev.platform };
+      const updatedPlatform = { ...prev.platform };
       if (claimId === 'claim-conflict-hull' && acceptedValue) {
         updatedPlatform.name = String(acceptedValue);
       }
@@ -190,7 +192,6 @@ export default function App() {
     showToast(`Candidate claim rejected.`);
   };
 
-  // Signal remediation application
   const handleApplySignalRemediation = (finding: SignalFinding) => {
     if (!finding.remediationAction) return;
 
@@ -226,7 +227,6 @@ export default function App() {
     }
   };
 
-  // Apply suggestions received from chatbot
   const handleApplySuggestedUpdates = (updates: any) => {
     if (!updates) return;
     setMission((prev) => {
@@ -287,7 +287,6 @@ export default function App() {
 
       {isCorpusOpen && <CorpusWorkspace onClose={() => setIsCorpusOpen(false)} />}
 
-      {/* Template Selector Modal */}
       <TemplateSelectorModal
         isOpen={isTemplatesOpen}
         onClose={() => setIsTemplatesOpen(false)}

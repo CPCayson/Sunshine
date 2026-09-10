@@ -1,22 +1,25 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Search,
-  Database,
-  ExternalLink,
-  Download,
-  Eye,
   CheckCircle2,
-  AlertTriangle,
-  Layers,
-  ArrowRight,
-  Filter,
-  Sparkles,
+  Database,
+  Download,
+  ExternalLink,
   Info,
-  ShieldAlert,
-  Compass
+  Search,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
-import { FederatedSearchResult, SourceAuthority, UxSMission } from '../types';
-import { SEED_FEDERATED_SEARCH_RESULTS } from '../data/evidenceAndClaims';
+import { FederatedSearchResult, UxSMission } from '../types';
+import { DiscoveryIntakeWorkspace } from './DiscoveryIntakeWorkspace';
+import {
+  DiscoveryIntakeDraft,
+  RankedDiscoveryHit,
+  SearchabilityResponse,
+  buildDiscoveryIntakeDraft,
+  discoveryHitToFederatedResult,
+  saveDiscoveryIntakeDraft,
+  searchSearchability,
+} from '../services/searchabilityService';
 
 interface MantasSearchProps {
   currentMission: UxSMission;
@@ -25,348 +28,301 @@ interface MantasSearchProps {
   onSwitchTab: (tab: any) => void;
 }
 
+const tierLabel: Record<RankedDiscoveryHit['matchTier'], string> = {
+  EXACT_ID: 'EXACT ID',
+  EXACT_PLATFORM: 'EXACT PLATFORM',
+  EXACT_TITLE: 'EXACT TITLE',
+  GCMD_EXACT: 'GCMD EXACT',
+  GCMD_RELATED: 'GCMD RELATED',
+  LOCAL_SEMANTIC: 'LOCAL SEMANTIC',
+  SUMMARY_ONLY: 'SUMMARY',
+};
+
+const sourceClass = (source: RankedDiscoveryHit['source']) => {
+  if (source === 'OneStop') return 'border-emerald-800/60 bg-emerald-950/20 text-emerald-300';
+  if (source === 'ERDDAP') return 'border-sky-800/60 bg-sky-950/20 text-sky-300';
+  return 'border-blue-800/60 bg-blue-950/20 text-blue-300';
+};
+
 export const MantasSearch: React.FC<MantasSearchProps> = ({
   currentMission,
   onPullAsEvidence,
   onSelectAsMission,
   onSwitchTab,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAuthority, setSelectedAuthority] = useState<string>('ALL');
-  const [selectedResult, setSelectedResult] = useState<FederatedSearchResult | null>(
-    SEED_FEDERATED_SEARCH_RESULTS[0]
-  );
-  const [showRawModal, setShowRawModal] = useState(false);
-  const [pulledNotification, setPulledNotification] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('remus');
+  const [response, setResponse] = useState<SearchabilityResponse | null>(null);
+  const [selected, setSelected] = useState<RankedDiscoveryHit | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [intakeOpen, setIntakeOpen] = useState(false);
 
-  const authorities: Array<{ id: string; label: string }> = [
-    { id: 'ALL', label: 'All Sources' },
-    { id: 'CoMET', label: 'NOAA CoMET' },
-    { id: 'OneStop', label: 'OneStop' },
-    { id: 'STAC', label: 'Ocean STAC' },
-    { id: 'UxS Registry', label: 'UxS Fleet' },
-    { id: 'DocuComp', label: 'DocuComp' },
-  ];
-
-  const filteredResults = SEED_FEDERATED_SEARCH_RESULTS.filter((item) => {
-    const matchesAuth =
-      selectedAuthority === 'ALL' || item.authority === selectedAuthority;
-    const matchesQuery =
-      searchQuery.trim() === '' ||
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.subtitle && item.subtitle.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.identifier && item.identifier.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.metadataSummary.platform &&
-        item.metadataSummary.platform.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesAuth && matchesQuery;
-  });
-
-  const handlePullEvidence = (result: FederatedSearchResult) => {
-    onPullAsEvidence(result);
-    setPulledNotification(`Imported candidate claims from ${result.authority} into Evidence workspace for human review.`);
-    setTimeout(() => setPulledNotification(null), 4500);
-  };
-
-  const getAuthorityBadge = (authority: SourceAuthority) => {
-    switch (authority) {
-      case 'CoMET':
-        return 'bg-blue-950/80 text-blue-300 border-blue-700/50';
-      case 'OneStop':
-        return 'bg-emerald-950/80 text-emerald-300 border-emerald-700/50';
-      case 'STAC':
-        return 'bg-purple-950/80 text-purple-300 border-purple-700/50';
-      case 'UxS Registry':
-        return 'bg-amber-950/80 text-amber-300 border-amber-700/50';
-      case 'DocuComp':
-        return 'bg-cyan-950/80 text-cyan-300 border-cyan-700/50';
-      default:
-        return 'bg-slate-800 text-slate-300 border-slate-700';
+  const runSearch = async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setIsSearching(true);
+    setNotice(null);
+    try {
+      const result = await searchSearchability(q);
+      setResponse(result);
+      setSelected(result.hits[0] || result.cometContext[0] || null);
+    } catch (error: any) {
+      setNotice(error?.message || 'Search failed.');
+    } finally {
+      setIsSearching(false);
     }
   };
 
-  return (
-    <div id="mantas-search-shell" className="flex-1 flex flex-col bg-[#060b14] text-slate-200 overflow-hidden">
-      {/* Top Banner: "What are you working on?" */}
-      <div className="bg-[#091120] border-b border-cyan-500/20 px-6 py-6 flex flex-col gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-100 font-sans tracking-wide">
-            What are you working on?
-          </h2>
-          <p className="text-xs text-slate-400 mt-1 max-w-2xl font-mono">
-            Search federated NOAA mission registries, CoMET records, OneStop collections, STAC catalogs, and UxS fleet asset databases to pull evidence into the canonical mission model.
-          </p>
-        </div>
+  React.useEffect(() => {
+    void runSearch();
+    // Initial pilot search intentionally runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-        {/* Big Search Input */}
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="relative flex-1 w-full">
-            <Search className="w-5 h-5 text-cyan-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              id="mantas-search-input"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search NOAA missions, cruises, platforms (e.g. REMUS 620, Okeanos Explorer, EX2503, Saildrone)..."
-              className="w-full bg-[#050912] border border-cyan-500/30 rounded-xl pl-11 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 font-sans shadow-inner"
-            />
+  const groupedDiscovery = useMemo(() => ({
+    oneStop: response?.hits.filter((hit) => hit.source === 'OneStop') || [],
+    erddap: response?.hits.filter((hit) => hit.source === 'ERDDAP') || [],
+    cometPrimary: response?.cometContext.filter((hit) => hit.recordGroupScope === 'MANTAS_PRIMARY') || [],
+    cometOther: response?.cometContext.filter((hit) => hit.recordGroupScope !== 'MANTAS_PRIMARY') || [],
+  }), [response]);
+
+  const importHit = (hit: RankedDiscoveryHit) => {
+    const draft = buildDiscoveryIntakeDraft(hit);
+    saveDiscoveryIntakeDraft(draft);
+    onPullAsEvidence(discoveryHitToFederatedResult(hit));
+    setNotice(`Imported ${hit.source} result into a reconciliation draft. Canonical mission was not changed.`);
+    setIntakeOpen(true);
+  };
+
+  const pullEvidence = (hit: RankedDiscoveryHit) => {
+    onPullAsEvidence(discoveryHitToFederatedResult(hit));
+    setNotice(`Pulled ${hit.source} observation into Evidence. Canonical mission was not changed.`);
+  };
+
+  const acceptField = (path: string, value: any) => {
+    if (path === 'title') return onSelectAsMission({ title: String(value) });
+    if (path === 'abstract') return onSelectAsMission({ abstract: String(value) });
+    if (path === 'dateStart') return onSelectAsMission({ dateStart: String(value) });
+    if (path === 'dateEnd') return onSelectAsMission({ dateEnd: String(value) });
+    if (path === 'instruments') return onSelectAsMission({ instruments: Array.isArray(value) ? value : [String(value)] });
+    if (path === 'platform.name') {
+      return onSelectAsMission({ platform: { ...currentMission.platform, name: String(value) } });
+    }
+    if (path === 'spatialExtent' && value && typeof value === 'object') {
+      return onSelectAsMission({ spatialExtent: { ...currentMission.spatialExtent, ...value } });
+    }
+    if (path.startsWith('keywords.')) {
+      const key = path.split('.')[1] as keyof UxSMission['keywords'];
+      return onSelectAsMission({
+        keywords: {
+          ...currentMission.keywords,
+          [key]: Array.isArray(value) ? value : [String(value)],
+        },
+      });
+    }
+  };
+
+  const acceptAll = (candidate: DiscoveryIntakeDraft['candidate']) => {
+    const partial: Partial<UxSMission> = {};
+    if (candidate.title) partial.title = candidate.title;
+    if (candidate.abstract) partial.abstract = candidate.abstract;
+    if (candidate.dateStart) partial.dateStart = candidate.dateStart;
+    if (candidate.dateEnd) partial.dateEnd = candidate.dateEnd;
+    if (candidate.instruments) partial.instruments = candidate.instruments;
+    if (candidate.platform) partial.platform = { ...currentMission.platform, ...candidate.platform };
+    if (candidate.spatialExtent) partial.spatialExtent = { ...currentMission.spatialExtent, ...candidate.spatialExtent };
+    if (candidate.keywords) {
+      partial.keywords = {
+        gcmdScience: candidate.keywords.gcmdScience || currentMission.keywords.gcmdScience,
+        gcmdPlatforms: candidate.keywords.gcmdPlatforms || currentMission.keywords.gcmdPlatforms,
+        freeKeywords: candidate.keywords.freeKeywords || currentMission.keywords.freeKeywords,
+      };
+    }
+    if (candidate.doi) partial.doi = candidate.doi;
+    onSelectAsMission(partial);
+    setNotice('Accepted the selected intake candidate fields into the working mission. Source evidence remains attached for review.');
+  };
+
+  if (intakeOpen) {
+    return (
+      <DiscoveryIntakeWorkspace
+        mission={currentMission}
+        onAcceptField={acceptField}
+        onAcceptAll={acceptAll}
+        onOpenSignal={() => onSwitchTab('signal')}
+        onBackToSearch={() => setIntakeOpen(false)}
+      />
+    );
+  }
+
+  const renderHit = (hit: RankedDiscoveryHit, mode: 'DISCOVERY' | 'CONTEXT') => (
+    <div
+      key={hit.id}
+      role="button"
+      tabIndex={0}
+      onClick={() => setSelected(hit)}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelected(hit); }}
+      className={`w-full text-left rounded-xl border p-4 transition-colors cursor-pointer ${selected?.id === hit.id ? 'border-cyan-600/60 bg-cyan-950/10' : 'border-slate-800 bg-[#08101d] hover:border-slate-700'}`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`text-[9px] font-mono px-2 py-0.5 rounded border ${sourceClass(hit.source)}`}>{hit.source}</span>
+            {mode === 'DISCOVERY' && <span className="text-[9px] font-mono px-2 py-0.5 rounded border border-cyan-800/60 text-cyan-300">#{hit.rankInSource}</span>}
+            {mode === 'DISCOVERY' && <span className="text-[9px] font-mono px-2 py-0.5 rounded border border-slate-700 text-slate-400">{tierLabel[hit.matchTier]}</span>}
+            {mode === 'CONTEXT' && <span className="text-[9px] font-mono px-2 py-0.5 rounded border border-slate-700 text-slate-400">READ ONLY CONTEXT</span>}
           </div>
-
-          {/* Source Authority Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto scrollbar-none">
-            {authorities.map((auth) => (
-              <button
-                key={auth.id}
-                id={`filter-auth-${auth.id}`}
-                onClick={() => setSelectedAuthority(auth.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors whitespace-nowrap ${
-                  selectedAuthority === auth.id
-                    ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/50 shadow-sm'
-                    : 'bg-[#080f1d] text-slate-400 hover:text-slate-200 border border-slate-800'
-                }`}
-              >
-                {auth.label}
-              </button>
-            ))}
+          <div className="mt-2 font-medium text-slate-100">{hit.title}</div>
+          {hit.subtitle && <div className="mt-1 text-xs font-mono text-slate-500">{hit.subtitle}</div>}
+          <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-mono">
+            {hit.platform && <span className="px-2 py-0.5 rounded bg-slate-900 text-cyan-300">Platform: {hit.platform}</span>}
+            {hit.gcmdPlatforms.slice(0, 2).map((term) => <span key={term} className="px-2 py-0.5 rounded bg-emerald-950/20 text-emerald-300">GCMD · {term}</span>)}
+            {hit.gcmdInstruments.slice(0, 2).map((term) => <span key={term} className="px-2 py-0.5 rounded bg-emerald-950/20 text-emerald-300">GCMD · {term}</span>)}
           </div>
-        </div>
-
-        {/* Doctrine Notice: No silent overwrites */}
-        <div className="flex items-center gap-2 text-[11px] font-mono text-cyan-300/80 bg-cyan-950/30 border border-cyan-500/20 rounded-lg px-3 py-1.5">
-          <Info className="w-4 h-4 text-cyan-400 shrink-0" />
-          <span>
-            <strong>Architectural Rule:</strong> Pulling search results creates <em>observed evidence</em> and candidate claims. Only explicit human acceptance mutates canonical mission meaning.
-          </span>
-        </div>
-      </div>
-
-      {/* Pulled Notification Banner */}
-      {pulledNotification && (
-        <div className="bg-emerald-950/80 border-b border-emerald-500/40 px-6 py-2 flex items-center justify-between text-xs font-mono text-emerald-200 animate-in fade-in duration-200">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>{pulledNotification}</span>
-          </div>
-          <button
-            onClick={() => onSwitchTab('evidence')}
-            className="text-xs text-emerald-300 underline font-semibold hover:text-emerald-100 ml-4 cursor-pointer"
-          >
-            Go to Evidence Workspace →
-          </button>
-        </div>
-      )}
-
-      {/* Main Split: Results List on Left, Selected Result Inspector on Right */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Left Column: Results List */}
-        <div className="w-full md:w-1/2 lg:w-3/5 border-r border-slate-800/80 overflow-y-auto p-4 space-y-3">
-          <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1 pb-1">
-            <span>Showing {filteredResults.length} federated records</span>
-            <span className="text-[11px] text-cyan-400">Sources: CoMET • OneStop • STAC • UxS Fleet</span>
-          </div>
-
-          {filteredResults.map((result) => {
-            const isSelected = selectedResult?.id === result.id;
-            return (
-              <div
-                key={result.id}
-                id={`search-result-card-${result.id}`}
-                onClick={() => setSelectedResult(result)}
-                className={`p-4 rounded-xl border transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-[#0a1426] border-cyan-500/50 shadow-md shadow-cyan-950/50'
-                    : 'bg-[#080e1b] border-slate-800/80 hover:border-cyan-500/30 hover:bg-[#091122]'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border font-semibold ${getAuthorityBadge(result.authority)}`}>
-                        {result.authority}
-                      </span>
-                      {result.status && (
-                        <span className="text-[10px] font-mono uppercase px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                          {result.status}
-                        </span>
-                      )}
-                      {result.dsmmScore && (
-                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800/60 font-semibold">
-                          DSMM: {result.dsmmScore}/5.0 ★
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-sm font-semibold text-slate-100 font-sans leading-snug">
-                      {result.title}
-                    </h3>
-                    {result.subtitle && (
-                      <p className="text-xs text-slate-400 font-mono">
-                        {result.subtitle}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Metadata summary chips */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-xs font-mono bg-[#050912]/70 p-2.5 rounded-lg border border-slate-800/60">
-                  {result.metadataSummary.platform && (
-                    <div className="flex items-center gap-1.5 text-slate-300">
-                      <span className="text-slate-500">Platform:</span>
-                      <span className="text-cyan-300 truncate">{result.metadataSummary.platform}</span>
-                    </div>
-                  )}
-                  {result.metadataSummary.temporal && (
-                    <div className="flex items-center gap-1.5 text-slate-300">
-                      <span className="text-slate-500">Temporal:</span>
-                      <span className="text-slate-300">{result.metadataSummary.temporal}</span>
-                    </div>
-                  )}
-                  {result.metadataSummary.sensors && result.metadataSummary.sensors.length > 0 && (
-                    <div className="sm:col-span-2 flex items-center gap-1.5 text-slate-300 truncate">
-                      <span className="text-slate-500">Sensors:</span>
-                      <span className="text-cyan-400">{result.metadataSummary.sensors.join(', ')}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Card footer action buttons */}
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-800/60">
-                  <span className="text-[11px] font-mono text-slate-400">
-                    {result.claimsCount || 1} candidate claims
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      id={`pull-btn-${result.id}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePullEvidence(result);
-                      }}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-600/50 text-xs font-mono font-medium transition-colors"
-                    >
-                      <Download className="w-3 h-3" />
-                      <span>Pull as Evidence</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Right Column: Selected Result Deep Inspector */}
-        <div className="w-full md:w-1/2 lg:w-2/5 overflow-y-auto p-5 bg-[#050a14] space-y-4">
-          {selectedResult ? (
-            <>
-              <div className="border-b border-slate-800 pb-3">
-                <div className="flex items-center justify-between">
-                  <span className={`text-[11px] font-mono uppercase px-2 py-0.5 rounded border font-semibold ${getAuthorityBadge(selectedResult.authority)}`}>
-                    {selectedResult.authority} Record
-                  </span>
-                  <span className="text-xs font-mono text-slate-500">
-                    ID: {selectedResult.id}
-                  </span>
-                </div>
-                <h3 className="text-base font-bold text-slate-100 font-sans mt-2">
-                  {selectedResult.title}
-                </h3>
-                {selectedResult.subtitle && (
-                  <p className="text-xs text-slate-400 font-mono mt-0.5">
-                    {selectedResult.subtitle}
-                  </p>
-                )}
-              </div>
-
-              {/* Source Provenance Info Box */}
-              <div className="bg-[#08101e] border border-cyan-500/20 rounded-xl p-3.5 space-y-2 text-xs font-mono">
-                <h4 className="text-xs font-semibold text-cyan-200 uppercase tracking-wider flex items-center gap-1.5">
-                  <Database className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Authority Source Metadata</span>
-                </h4>
-                <div className="space-y-1 text-slate-300">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Authority System:</span>
-                    <span className="text-cyan-300 font-semibold">{selectedResult.authority}</span>
-                  </div>
-                  {selectedResult.identifier && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Identifier / DOI:</span>
-                      <span className="text-slate-300 truncate max-w-[200px]">{selectedResult.identifier}</span>
-                    </div>
-                  )}
-                  {selectedResult.uuid && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">CoMET UUID:</span>
-                      <span className="text-cyan-400 truncate max-w-[200px]">{selectedResult.uuid}</span>
-                    </div>
-                  )}
-                  {selectedResult.timestamp && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Recorded Timestamp:</span>
-                      <span className="text-slate-400">{selectedResult.timestamp}</span>
-                    </div>
-                  )}
-                  {selectedResult.dsmmScore && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">NOAA DSMM Maturity:</span>
-                      <span className="text-amber-300 font-bold">{selectedResult.dsmmScore} / 5.0</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Raw fragment preview */}
-              {selectedResult.rawFragment && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-                    <span>Raw Observed Fragment</span>
-                    <span className="text-[10px] text-cyan-400">XML/JSON</span>
-                  </div>
-                  <pre className="bg-[#04070d] border border-slate-800 rounded-lg p-3 text-[11px] font-mono text-cyan-200/90 overflow-x-auto max-h-36">
-                    {selectedResult.rawFragment}
-                  </pre>
-                </div>
-              )}
-
-              {/* Actions Box */}
-              <div className="bg-[#091224] border border-cyan-500/30 rounded-xl p-4 space-y-3">
-                <h4 className="text-xs font-semibold text-slate-200 uppercase tracking-wider font-mono">
-                  Integration Actions
-                </h4>
-                <p className="text-xs text-slate-400">
-                  Importing extracts claims from this record into your active Evidence workspace for reconciliation against other observations.
-                </p>
-
-                <div className="flex flex-col gap-2">
-                  <button
-                    id="inspector-pull-evidence-btn"
-                    onClick={() => handlePullEvidence(selectedResult)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs font-mono shadow-md transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Pull as Evidence to Claims Workspace</span>
-                  </button>
-
-                  <button
-                    id="inspector-set-base-btn"
-                    onClick={() => {
-                      if (selectedResult.candidateUxsMission) {
-                        onSelectAsMission(selectedResult.candidateUxsMission);
-                        onSwitchTab('mission');
-                      }
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0d1b32] hover:bg-[#122442] text-cyan-300 border border-cyan-500/30 text-xs font-mono transition-colors"
-                  >
-                    <Compass className="w-4 h-4 text-cyan-400" />
-                    <span>Adopt Candidate Values into Mission View</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500 font-mono text-xs">
-              <Search className="w-8 h-8 text-slate-600 mb-2" />
-              <span>Select a federated record to inspect evidence details</span>
+          {mode === 'DISCOVERY' && hit.rankReasons.length > 0 && (
+            <div className="mt-3 text-xs text-slate-500">
+              Why #{hit.rankInSource}: {hit.rankReasons.slice(0, 3).map((reason) => reason.label).join(' · ')}
             </div>
           )}
         </div>
+        {mode === 'DISCOVERY' && <div className="text-xl font-semibold text-cyan-300 tabular-nums">{hit.localScore}</div>}
+      </div>
+      <div className="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[10px] font-mono text-slate-600">{hit.provenanceType}</div>
+        <div className="flex gap-2">
+          <button
+            onClick={(event) => { event.stopPropagation(); pullEvidence(hit); }}
+            className="px-2.5 py-1.5 rounded border border-slate-700 text-xs text-slate-300 hover:border-cyan-700"
+          >
+            Pull evidence
+          </button>
+          <button
+            onClick={(event) => { event.stopPropagation(); importHit(hit); }}
+            className="px-2.5 py-1.5 rounded bg-cyan-600 text-slate-950 text-xs font-semibold hover:bg-cyan-500"
+          >
+            {mode === 'CONTEXT' ? 'Use as evidence draft' : 'Import'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const oneStopLane = response?.lanes.find((lane) => lane.source === 'OneStop');
+  const erddapLane = response?.lanes.find((lane) => lane.source === 'ERDDAP');
+  const cometLane = response?.lanes.find((lane) => lane.source === 'CoMET');
+  const threddsLane = response?.lanes.find((lane) => lane.source === 'THREDDS');
+
+  return (
+    <div id="mantas-search-shell" className="flex-1 flex flex-col bg-[#060b14] text-slate-200 overflow-hidden">
+      <header className="px-6 py-5 border-b border-slate-800 bg-[#07101c] space-y-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 uppercase tracking-wider"><Search className="w-4 h-4" /> Searchability</div>
+          <h2 className="mt-2 text-xl font-semibold">Find evidence. Rank it. Reconcile before acceptance.</h2>
+          <p className="mt-1 text-sm text-slate-500 max-w-3xl">OneStop and PMEL ERDDAP are discovery lanes. CoMET is workspace context. STAC below is a local projection of the current mission. DocuComp/GCMD enrich meaning; they are not discovery authorities.</p>
+        </div>
+
+        <form onSubmit={(event) => { event.preventDefault(); void runSearch(); }} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="REMUS, TPOS, EX2102, Saildrone..."
+              className="w-full rounded-xl border border-slate-700 bg-[#050a13] pl-10 pr-4 py-2.5 text-sm outline-none focus:border-cyan-600"
+            />
+          </div>
+          <button disabled={isSearching} className="px-4 py-2.5 rounded-xl bg-cyan-600 text-slate-950 font-semibold disabled:opacity-50">{isSearching ? 'Searching…' : 'Search'}</button>
+        </form>
+
+        {response?.queryCrosswalk.length ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+            <span className="text-slate-500">LOCAL semantic expansion:</span>
+            {response.queryCrosswalk.map((item) => <span key={item.label} className="px-2 py-0.5 rounded border border-purple-800/60 text-purple-300">{item.label}</span>)}
+            <span className="text-slate-600">Not GCMD unless explicitly labeled GCMD.</span>
+          </div>
+        ) : null}
+
+        <div className="rounded-lg border border-cyan-900/50 bg-cyan-950/10 px-3 py-2 text-[11px] font-mono text-cyan-200 flex items-start gap-2">
+          <Info className="w-4 h-4 mt-0.5 shrink-0" />
+          <span>Import creates a <strong>DRAFT_RECONCILE</strong> intake and source evidence. It does not silently write canonical mission meaning.</span>
+        </div>
+        {notice && <div className="rounded-lg border border-emerald-900/50 bg-emerald-950/10 px-3 py-2 text-xs text-emerald-300 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />{notice}</div>}
+      </header>
+
+      <div className="flex-1 grid grid-cols-1 xl:grid-cols-[1.2fr_.8fr] overflow-hidden">
+        <main className="overflow-auto p-5 space-y-7">
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <div><h3 className="font-semibold">OneStop · discovery</h3><div className="text-xs text-slate-600 mt-1">{oneStopLane?.message || 'Not searched yet.'}</div></div>
+              <span className="text-xs font-mono text-slate-500">{groupedDiscovery.oneStop.length} hits</span>
+            </div>
+            <div className="space-y-2">{groupedDiscovery.oneStop.map((hit) => renderHit(hit, 'DISCOVERY'))}</div>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <div><h3 className="font-semibold">PMEL ERDDAP · discovery</h3><div className="text-xs text-slate-600 mt-1">{erddapLane?.message || 'Not searched yet.'}</div></div>
+              <span className="text-xs font-mono text-slate-500">{groupedDiscovery.erddap.length} hits</span>
+            </div>
+            {groupedDiscovery.erddap.length === 0 ? <div className="rounded-xl border border-slate-800 bg-[#08101d] p-4 text-sm text-slate-500">Honest empty is valid. No generic UxS result is inserted when ERDDAP has no match.</div> : <div className="space-y-2">{groupedDiscovery.erddap.map((hit) => renderHit(hit, 'DISCOVERY'))}</div>}
+          </section>
+
+          <section>
+            <div className="mb-3"><h3 className="font-semibold">CoMET · workspace context</h3><div className="text-xs text-slate-600 mt-1">{cometLane?.message || 'Not searched yet.'}</div></div>
+            {groupedDiscovery.cometPrimary.length > 0 && <div className="mb-4"><div className="text-xs font-mono text-cyan-400 mb-2">MY MANTA / UxS RECORD GROUP</div><div className="space-y-2">{groupedDiscovery.cometPrimary.map((hit) => renderHit(hit, 'CONTEXT'))}</div></div>}
+            {groupedDiscovery.cometOther.length > 0 && <div><div className="text-xs font-mono text-slate-500 mb-2">OTHER RECORD GROUPS · READ ONLY</div><div className="space-y-2">{groupedDiscovery.cometOther.map((hit) => renderHit(hit, 'CONTEXT'))}</div></div>}
+          </section>
+
+          <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-purple-900/50 bg-purple-950/10 p-4">
+              <div className="text-xs font-mono text-purple-300">LOCAL STAC PROJECTION</div>
+              <div className="mt-2 font-medium">{currentMission.title}</div>
+              <div className="mt-1 text-xs text-slate-500">Projected from the current Zen mission. This is not an external STAC API hit.</div>
+              <button onClick={() => onSwitchTab('projections')} className="mt-3 text-xs text-purple-300 underline">Inspect projection</button>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-[#08101d] p-4">
+              <div className="text-xs font-mono text-slate-400">THREDDS · COMPARE ONLY</div>
+              <div className="mt-2 text-sm text-slate-500">{threddsLane?.message || 'No catalog configured.'}</div>
+            </div>
+          </section>
+        </main>
+
+        <aside className="border-l border-slate-800 bg-[#050a13] overflow-auto p-5">
+          {selected ? (
+            <div className="space-y-5">
+              <section>
+                <div className="flex items-center gap-2"><span className={`text-[9px] font-mono px-2 py-0.5 rounded border ${sourceClass(selected.source)}`}>{selected.source}</span><span className="text-[9px] font-mono text-slate-600">{selected.provenanceType}</span></div>
+                <h3 className="mt-3 text-lg font-semibold">{selected.title}</h3>
+                {selected.description && <p className="mt-3 text-sm leading-6 text-slate-400">{selected.description}</p>}
+              </section>
+
+              <section className="border-t border-slate-800 pt-5">
+                <div className="text-xs uppercase tracking-wider text-slate-600">Why this rank</div>
+                <div className="mt-3 space-y-2">
+                  {selected.rankReasons.map((reason) => <div key={reason.code} className="flex justify-between gap-3 text-xs"><span className={reason.authority === 'GCMD' ? 'text-emerald-300' : reason.authority === 'LOCAL' ? 'text-purple-300' : 'text-slate-300'}>{reason.label}</span><span className="font-mono text-slate-500">+{reason.points}</span></div>)}
+                </div>
+              </section>
+
+              <section className="border-t border-slate-800 pt-5">
+                <div className="text-xs uppercase tracking-wider text-slate-600">Crosswalk evidence</div>
+                <div className="mt-3 space-y-2">
+                  {selected.crosswalkEvidence.length === 0 && <div className="text-sm text-slate-600">No crosswalk evidence used.</div>}
+                  {selected.crosswalkEvidence.map((item, index) => <div key={`${item.label}-${index}`} className="rounded-lg border border-slate-800 p-3"><div className="flex justify-between gap-2"><span className="text-sm text-slate-300">{item.label}</span><span className={item.authority === 'GCMD' ? 'text-emerald-300 text-[10px]' : 'text-purple-300 text-[10px]'}>{item.authority}</span></div><div className="mt-1 text-[10px] font-mono text-slate-600">{item.kind} · {item.relation}</div></div>)}
+                </div>
+              </section>
+
+              <section className="border-t border-slate-800 pt-5 flex gap-2">
+                <button onClick={() => pullEvidence(selected)} className="flex-1 px-3 py-2 rounded-lg border border-slate-700 text-slate-300 text-sm flex items-center justify-center gap-2"><Download className="w-4 h-4" /> Evidence</button>
+                <button onClick={() => importHit(selected)} className="flex-1 px-3 py-2 rounded-lg bg-cyan-600 text-slate-950 text-sm font-semibold flex items-center justify-center gap-2"><ShieldCheck className="w-4 h-4" /> Import draft</button>
+              </section>
+
+              {selected.sourceUrl && <a href={selected.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 flex items-center gap-1">Open source <ExternalLink className="w-3 h-3" /></a>}
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center text-center text-slate-600"><div><Database className="w-8 h-8 mx-auto" /><div className="mt-3 text-sm">Select a discovery result to inspect ranking and source evidence.</div></div></div>
+          )}
+        </aside>
       </div>
     </div>
   );
